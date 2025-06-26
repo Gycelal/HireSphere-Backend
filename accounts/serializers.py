@@ -8,7 +8,8 @@ from .validators import (
     validate_email_exists,
 )
 from rest_framework.validators import UniqueValidator
-
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 
@@ -34,8 +35,7 @@ class RegistrationSerializer(serializers.Serializer):
 
     def validate_email(self,email):
         validate_email_exists(email,should_exist=False)
-        return email
-    
+        return email    
     def validate_password(self,password):
         validate_password_strength(password)
         return password
@@ -80,3 +80,42 @@ class RegistrationSerializer(serializers.Serializer):
         validated_data.pop('confirm_password', None)
 
         return user
+    
+
+class LoginSerializer(serializers.Serializer):
+    
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    
+    def validate(self,data):
+        email = data.get('email')
+        password = data.get('password')
+
+        validate_email_exists(email=email,should_exist=True)
+
+        user = authenticate(email=email,password=password)
+
+        if not user:
+            raise serializers.ValidationError('Invalid Email or Password.')
+        
+        if not user.is_active:
+            raise serializers.ValidationError('Account is Disabled.')
+        
+        if user.role in ['company_admin','company_member']:
+            if not hasattr(user, 'company') or not user.company.is_approved:
+                raise serializers.ValidationError("Your company account is not approved by the admin yet.")
+
+
+        
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            'refresh':str(refresh),
+            'access':str(refresh.access_token),
+            'role':user.role,
+        }
+    
+
+
+
