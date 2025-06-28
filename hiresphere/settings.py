@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -95,9 +96,9 @@ WSGI_APPLICATION = 'hiresphere.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'hiresphere_db',
-        'USER': 'gycelal',
-        'PASSWORD':'lal@1921',
+        'NAME': config('DB_name'),
+        'USER': config('DB_USER'),
+        'PASSWORD':config('DB_PASSWORD'),
         'HOST': 'localhost',
         'PORT': '5432',
 
@@ -173,13 +174,9 @@ CORS_ALLOWED_ORIGINS = [
 
 
 
-
-
-
-
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'krgycelal@gmail.com'
-EMAIL_HOST_PASSWORD = 'wwet hoci fefm kacc' 
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
