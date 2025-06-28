@@ -10,6 +10,8 @@ from .validators import (
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from .utils.otp import generate_otp, store_otp, verify_otp
+from .tasks import send_otp_email
 
 
 
@@ -24,18 +26,26 @@ class RegistrationSerializer(serializers.Serializer):
 
     company_name =serializers.CharField(required=False)
     registration_number = serializers.CharField(
-    required=False,
-    validators=[
-        UniqueValidator(
-            queryset=Company.objects.all(),
-            message="A company with this registration number already exists."
+        required=False,
+        validators=[
+            UniqueValidator(
+                queryset=Company.objects.all(),
+                message="A company with this registration number already exists."
+            )
+        ]
         )
-    ]
-)
 
     def validate_email(self,email):
-        validate_email_exists(email,should_exist=False)
-        return email    
+        user = CustomUser.objects.filter(email=email).first()
+
+        if user:
+            if user.is_verified:
+                raise serializers.ValidationError("User with this email already exist.")
+
+            self.context['unverified_user'] = user
+        return email
+
+
     def validate_password(self,password):
         validate_password_strength(password)
         return password
@@ -79,6 +89,11 @@ class RegistrationSerializer(serializers.Serializer):
         
         validated_data.pop('confirm_password', None)
 
+        otp = generate_otp()
+        store_otp(user.email,otp)
+
+        send_otp_email.delay(user.email,otp)
+
         return user
     
 
@@ -117,5 +132,26 @@ class LoginSerializer(serializers.Serializer):
         }
     
 
+class OTPVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField()
+
+    def validate(self, data):
+        email = data['email']
+        otp = data['otp']
+
+        if not verify_otp(email, otp):
+            raise serializers.ValidationError('Invalid or expired OTP.')
+        
+
+        try:
+            user = CustomUser.objects.get(email=email)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("User not found.")
+        
+        user.is_verified = True
+        user.save(update_fields=['is_verified'])
+        
+        return data
 
 
