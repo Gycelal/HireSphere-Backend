@@ -12,8 +12,10 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .utils.otp import generate_otp, store_otp, verify_otp
 from .tasks import send_otp_email
+from django.utils.http import urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
 
-
+User = get_user_model()
 
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -153,5 +155,68 @@ class OTPVerifySerializer(serializers.Serializer):
         user.save(update_fields=['is_verified'])
         
         return data
+    
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate(self,data):
+        email = data.get('email')
+
+        validate_email_exists(email=email,should_exist=True)
+
+        try:
+            user = CustomUser.objects.get(email=email)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("User with this email does not exist.")
+        if not user.is_verified:
+            raise serializers.ValidationError('User Should verify the email first.')
+        data['user'] = user
+        return data
+    
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    uidb64 = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate_password(self,password):
+        validate_password_strength(password)
+        return password
+    
+    def validate(self,data):
+        uidb64 = data.get('uidb64')
+        token = data.get('token')
+        password = data.get('password')
+        confirm_password = data.get('confirm_password')
+
+        validate_password_match(password,confirm_password)
+
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError("Invalid or expired token.")
+        
+
+        if not default_token_generator.check_token(user, token):
+            raise serializers.ValidationError('Invalid or expired reset token.')
+        
+        self.user = user
+
+        return data
+    
+    def save(self):
+        password = self.validated_data['password']
+        self.user.set_password(password)
+        self.user.save()
+
+        
+        
+
+
+
+
+
 
 

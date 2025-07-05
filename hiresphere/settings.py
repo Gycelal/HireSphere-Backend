@@ -96,7 +96,7 @@ WSGI_APPLICATION = 'hiresphere.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_name'),
+        'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
         'PASSWORD':config('DB_PASSWORD'),
         'HOST': 'localhost',
