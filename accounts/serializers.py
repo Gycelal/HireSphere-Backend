@@ -22,19 +22,14 @@ class RegistrationSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
     role = serializers.ChoiceField(choices=CustomUser.ROLE_CHOICES)
-    
-    first_name = serializers.CharField(required=False)
-    last_name = serializers.CharField(required=False)
 
-    company_name =serializers.CharField(required=False)
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
+
+    company_name = serializers.CharField(required=False, allow_blank=True)
     registration_number = serializers.CharField(
         required=False,
-        validators=[
-            UniqueValidator(
-                queryset=Company.objects.all(),
-                message="A company with this registration number already exists."
-            )
-        ]
+        allow_blank=True,
         )
 
     def validate_email(self,email):
@@ -42,7 +37,7 @@ class RegistrationSerializer(serializers.Serializer):
 
         if user:
             if user.is_verified:
-                raise serializers.ValidationError("User with this email already exist.")
+                raise serializers.ValidationError({email:"This email is already registered."})
 
             self.context['unverified_user'] = user
         return email
@@ -51,6 +46,17 @@ class RegistrationSerializer(serializers.Serializer):
     def validate_password(self,password):
         validate_password_strength(password)
         return password
+    
+    def validate_registration_number(self, value):
+        value = value.strip()
+        if value:
+            exists = Company.objects.filter(
+                registration_number=value,
+                user__is_verified=True
+            ).exists()
+            if exists:
+                raise serializers.ValidationError("A company with this registration number already exists.")
+        return value
     
     
 
@@ -63,12 +69,29 @@ class RegistrationSerializer(serializers.Serializer):
         validate_password_match(password,confirm_password)
 
         if role == 'candidate':
-            if not data.get('first_name') or not data.get('last_name'):
-                raise serializers.ValidationError('Both first name and last name are required for candidates.')
+            errors = {}
+            if not data.get('first_name', '').strip():
+                errors['first_name'] = ['First name is required.']
+
+            if not data.get('last_name', '').strip():
+                errors['last_name'] = ['Last name is required.']
+
+            if errors:
+                raise serializers.ValidationError(errors)
+
+            
 
         elif role == 'company_admin':
-            if not data.get('company_name') or not data.get('registration_number'):
-                raise serializers.ValidationError('Company name and registration number are required for company admins.')
+            errors = {}
+            company_name = data.get('company_name', '').strip()
+
+            if not company_name:
+                errors['company_name'] = ['Company name is required.']
+            elif company_name.isdigit():
+                errors['company_name'] = ['Company name cannot be only numbers.']
+
+            if errors:
+                raise serializers.ValidationError(errors)
 
         return data
     
@@ -93,7 +116,7 @@ class RegistrationSerializer(serializers.Serializer):
 
         otp = generate_otp()
         store_otp(user.email,otp)
-
+        print(f"Generated OTP for {user.email}: {otp}")
         send_otp_email.delay(user.email,otp)
 
         return user
@@ -139,8 +162,8 @@ class OTPVerifySerializer(serializers.Serializer):
     otp = serializers.CharField()
 
     def validate(self, data):
-        email = data['email']
-        otp = data['otp']
+        email = data['email'].strip()
+        otp = data['otp'].strip()
 
         if not verify_otp(email, otp):
             raise serializers.ValidationError('Invalid or expired OTP.')
