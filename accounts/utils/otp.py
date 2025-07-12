@@ -2,7 +2,7 @@ import random
 from django.core.cache import cache
 
 
-OTP_EXPIRE_TIME = 60
+OTP_EXPIRE_TIME = 300
 
 def generate_otp():
     return str(random.randint(100000, 999999))

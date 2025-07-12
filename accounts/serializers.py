@@ -116,7 +116,6 @@ class RegistrationSerializer(serializers.Serializer):
 
         otp = generate_otp()
         store_otp(user.email,otp)
-        print(f"Generated OTP for {user.email}: {otp}")
         send_otp_email.delay(user.email,otp)
 
         return user
