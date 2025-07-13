@@ -139,15 +139,13 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError('Invalid credentials.')
         
-        if not user.is_active:
-            raise serializers.ValidationError('Account is Disabled.')
+        if user.is_blocked:
+            raise serializers.ValidationError('Your account has been blocked by admin')
         
         if user.role in ['company_admin','company_member']:
             if not hasattr(user, 'company') or not user.company.is_approved:
-                raise serializers.ValidationError("Your account is not approved by the admin yet.Please contact the admin for approval.")
+                raise serializers.ValidationError("Your account has not been approved by the admin yet.")
 
-
-        
         refresh = RefreshToken.for_user(user)
 
         return {
