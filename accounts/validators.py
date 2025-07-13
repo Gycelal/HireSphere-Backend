@@ -18,11 +18,14 @@ def validate_password_match(password,confirm_password):
     if password != confirm_password:
         raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
     
+# This one will check whether the email already exist while registering  and also check if no account exisit while logging in.
 def validate_email_exists(email,should_exist=True):
     exists = User.objects.filter(email=email).exists()
-
+    errors = {}
     if should_exist and not exists:
-        raise serializers.ValidationError({email: "No account found with this email."})
+        errors['email'] = "No account found with this email."
+    elif not should_exist and exists:
+        errors['email'] = "Email is already registered."
+    if errors:
+        raise serializers.ValidationError(errors)
 
-    if not should_exist and exists:
-        raise serializers.ValidationError({email: "Email is already registered."})

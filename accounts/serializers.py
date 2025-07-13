@@ -134,16 +134,17 @@ class LoginSerializer(serializers.Serializer):
         validate_email_exists(email=email,should_exist=True)
 
         user = authenticate(email=email,password=password)
+        print('User:', user)
 
         if not user:
-            raise serializers.ValidationError('Invalid Email or Password.')
+            raise serializers.ValidationError('Invalid credentials.')
         
         if not user.is_active:
             raise serializers.ValidationError('Account is Disabled.')
         
         if user.role in ['company_admin','company_member']:
             if not hasattr(user, 'company') or not user.company.is_approved:
-                raise serializers.ValidationError("Your company account is not approved by the admin yet.")
+                raise serializers.ValidationError("Your account is not approved by the admin yet.Please contact the admin for approval.")
 
 
         
