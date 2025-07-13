@@ -37,7 +37,7 @@ class RegistrationSerializer(serializers.Serializer):
 
         if user:
             if user.is_verified:
-                raise serializers.ValidationError({email:"This email is already registered."})
+                raise serializers.ValidationError("This email is already registered.")
 
             self.context['unverified_user'] = user
         return email

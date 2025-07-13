@@ -11,8 +11,12 @@ def store_otp(email,otp):
     cache.set(f"otp:{email}",otp,timeout=OTP_EXPIRE_TIME)
 
 def verify_otp(email,user_input_otp):
-    stored_otp = cache.get(f"otp:{email}")
-    return stored_otp == user_input_otp
+    key = f"otp:{email}"
+    stored_otp = cache.get(key)
+    if stored_otp == user_input_otp:
+        cache.delete(key)
+        return True
+    return False
 
 def can_resend_otp(email):
     key = f'otp_cooldown:{email}'

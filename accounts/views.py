@@ -13,11 +13,13 @@ from django.utils.encoding import force_bytes
 
 class RegisterView(APIView):
     def post(self,request):
+        print("Registering user...")
         serializer = RegistrationSerializer(data=request.data)
         if serializer.is_valid():
             unverified_user = serializer.context.get('unverified_user')
             if unverified_user:
                 otp = generate_otp()
+                print('OTP:', otp)
                 store_otp(unverified_user.email,otp)
                 send_otp_email.delay(unverified_user.email,otp)
                 return Response(
@@ -34,10 +36,13 @@ class RegisterView(APIView):
 
 class VerifyOTPView(APIView):
     def post(self,request):
+        print("Verifying OTP...")
         serializer = OTPVerifySerializer(data=request.data)
 
         if serializer.is_valid():
+            print('verified')
             return Response({'message': 'OTP verified successfully'})
+        print('not verified')
         return Response(serializer.errors, status=400)
 
 
@@ -52,6 +57,7 @@ class ResendOTPView(APIView):
             return Response({"non_field_errors":"Please wait before requesting a new OTP."},status=429)
         
         otp = generate_otp()
+        print('Resending OTP:', otp)
         store_otp(email, otp)
         send_otp_email.delay(email, otp)
         return Response({"message":"OTP resent successfully."})
