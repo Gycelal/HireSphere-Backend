@@ -141,19 +141,39 @@ class LoginSerializer(serializers.Serializer):
         
         if user.is_blocked:
             raise serializers.ValidationError('Your account has been blocked by admin')
-        
+        if not user.is_verified:
+            raise serializers.ValidationError(detail={"detail": "Please verify your account by the OTP which has been sent to your email before logging in.", "code": "unverified_user"})
+
         if user.role in ['company_admin','company_member']:
-            if not hasattr(user, 'company') or not user.company.is_approved:
+            company = getattr(user, 'company', None)
+            if not company or not company.is_approved:
                 raise serializers.ValidationError("Your account has not been approved by the admin yet.")
+
 
         refresh = RefreshToken.for_user(user)
 
-        return {
-            'refresh':str(refresh),
-            'access':str(refresh.access_token),
-            'role':user.role,
+        # Basic user info
+        user_data = {
+            'id':user.id,
+            'email': user.email,
+            'role': user.role,
         }
-    
+        # role specific info
+
+        if user.role == 'candidate' and hasattr(user, 'candidate'):
+            user_data['first_name'] = user.candidate.first_name
+            user_data['last_name'] = user.candidate.last_name
+        elif user.role in ['company_admin', 'company_member'] and hasattr(user, 'company'):
+            user_data['company_name'] = user.company.company_name
+            user_data['registration_number'] = user.company.registration_number
+
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': user_data
+        }    
+
+
 
 class OTPVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()
