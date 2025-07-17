@@ -79,8 +79,6 @@ class RegistrationSerializer(serializers.Serializer):
             if errors:
                 raise serializers.ValidationError(errors)
 
-            
-
         elif role == 'company_admin':
             errors = {}
             company_name = data.get('company_name', '').strip()
@@ -115,6 +113,7 @@ class RegistrationSerializer(serializers.Serializer):
         validated_data.pop('confirm_password', None)
 
         otp = generate_otp()
+        print('OTP:', otp)
         store_otp(user.email,otp)
         send_otp_email.delay(user.email,otp)
 
@@ -150,7 +149,8 @@ class LoginSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Your account has not been approved by the admin yet.")
 
 
-        refresh = RefreshToken.for_user(user)
+        refresh_token = RefreshToken.for_user(user)
+        self.context['refresh_token'] = refresh_token
 
         # Basic user info
         user_data = {
@@ -168,8 +168,7 @@ class LoginSerializer(serializers.Serializer):
             user_data['registration_number'] = user.company.registration_number
 
         return {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
+            'access_token': str(refresh_token.access_token),
             'user': user_data
         }    
 
@@ -214,10 +213,10 @@ class ForgotPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError('User Should verify the email first.')
         data['user'] = user
         return data
-    
+
 class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField()
-    uidb64 = serializers.CharField()
+    uid = serializers.CharField()
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
 
@@ -226,7 +225,7 @@ class ResetPasswordSerializer(serializers.Serializer):
         return password
     
     def validate(self,data):
-        uidb64 = data.get('uidb64')
+        uid = data.get('uid')
         token = data.get('token')
         password = data.get('password')
         confirm_password = data.get('confirm_password')
@@ -234,7 +233,7 @@ class ResetPasswordSerializer(serializers.Serializer):
         validate_password_match(password,confirm_password)
 
         try:
-            uid = urlsafe_base64_decode(uidb64).decode()
+            uid = urlsafe_base64_decode(uid).decode()
             user = User.objects.get(pk=uid)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             raise serializers.ValidationError("Invalid or expired token.")

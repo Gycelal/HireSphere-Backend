@@ -70,8 +70,27 @@ class LoginView(APIView):
     def post(self,request):
         print("Logging in user...")
         serializer = LoginSerializer(data=request.data)
+        
         if serializer.is_valid():
-            return Response(serializer.validated_data,status=200)
+            refresh_token = serializer.context.get('refresh_token')
+            access_token = serializer.validated_data['access_token']
+            user_data = serializer.validated_data['user']
+
+            response = Response({
+                'access_token': access_token,
+                'user': user_data
+            }, status=200)      
+
+            response.set_cookie(
+                key='refresh_token',
+                value=refresh_token,
+                httponly=True,
+                secure=True,
+                samesite='Lax', 
+                path='/api/token/refresh/',  
+                max_age=7 * 24 * 60 * 60, 
+            )
+            return response
         return Response(serializer.errors,status=400)
 
 
@@ -82,11 +101,12 @@ class ForgotPasswordView(APIView):
             user = serializer.validated_data['user']
             token = PasswordResetTokenGenerator().make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            reset_url = f"http://localhost:5173/forgot-password/{uid}/{token}"
+            reset_url = f"http://localhost:5173/reset-password/{uid}/{token}"
             send_password_reset_email.delay(user.email,reset_url)
             return Response({'message':"Password reset link sent to your mail."},status=200)
         return Response(serializer.errors,status=400)
-    
+
+
 
 class ResetPasswordView(APIView):
     def post(self,request):
@@ -98,7 +118,7 @@ class ResetPasswordView(APIView):
 
 
 
-    
+
 
 
 
