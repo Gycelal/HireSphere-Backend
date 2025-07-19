@@ -38,7 +38,9 @@ class CustomUser(AbstractBaseUser,PermissionsMixin):
     ]
      
      email = models.EmailField(unique=True)
-     role = models.CharField(max_length=20,choices=ROLE_CHOICES)
+     role = models.CharField(max_length=20,choices=ROLE_CHOICES,default='pending')
+     is_social_account = models.BooleanField(default=False)
+     is_profile_complete = models.BooleanField(default=False)
      is_active = models.BooleanField(default=True)
      is_blocked = models.BooleanField(default=False)
      is_verified = models.BooleanField(default=False)
@@ -68,7 +70,6 @@ class Company(models.Model):
     
     
 class Candidate(models.Model):
-    
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,related_name='candidate')
     name = models.CharField(max_length=255)
     first_name = models.CharField(max_length=150)
