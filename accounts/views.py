@@ -1,16 +1,21 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import RegistrationSerializer,LoginSerializer,OTPVerifySerializer,ForgotPasswordSerializer,ResetPasswordSerializer
+from .serializers import RegistrationSerializer,LoginSerializer,OTPVerifySerializer,ForgotPasswordSerializer,ResetPasswordSerializer,GoogleAuthSerializer,CompleteProfileSerializer
 from .utils.otp import generate_otp, store_otp, can_resend_otp
 from .tasks import send_otp_email,send_password_reset_email
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
+from rest_framework.permissions import AllowAny
+from .permissions import IsGoogleUser
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 
 class RegisterView(APIView):
+    permission_classes = [AllowAny]
+    print('in register view')
     def post(self,request):
         print("Registering user...")
         serializer = RegistrationSerializer(data=request.data)
@@ -31,9 +36,51 @@ class RegisterView(APIView):
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
     
 
+class GoogleAuthView(APIView):
+    permission_classes = [AllowAny]
+    def post(self,request):
+        serializer = GoogleAuthSerializer(data=request.data)
+        print("Authenticating with Google...")
+        if serializer.is_valid():
+            print('Google authentication successful')
+            refresh_token = serializer.context.get('refresh_token')
+            validated_data = serializer.validated_data
+
+            response = Response(validated_data, status=status.HTTP_200_OK)
+            response.set_cookie(
+                key='refresh_token',
+                value=refresh_token,
+                httponly=True,
+                secure=True,
+                samesite='Lax',
+                path='/api/accounts/token/refresh/',
+                max_age=7 * 24 * 60 * 60,  # 7 days
+            )
+
+            return response
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    
+
+class CompleteProfileView(APIView):
+    print('in complete profile view')
+    permission_classes = [IsGoogleUser]  
+
+    def post(self, request):
+        print('in post')
+        serializer = CompleteProfileSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Profile completed successfully.'}, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 
 
 class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
     def post(self,request):
         print("Verifying OTP...")
         serializer = OTPVerifySerializer(data=request.data)
@@ -48,6 +95,7 @@ class VerifyOTPView(APIView):
 
 
 class ResendOTPView(APIView):
+    permission_classes = [AllowAny]
     def post(self,request):
         email = request.data.get('email')
         if not email:
@@ -65,7 +113,7 @@ class ResendOTPView(APIView):
 
 
 class LoginView(APIView):
-    
+    permission_classes = [AllowAny]
     def post(self,request):
         print("Logging in user...")
         serializer = LoginSerializer(data=request.data)
@@ -86,7 +134,7 @@ class LoginView(APIView):
                 httponly=True,
                 secure=True,
                 samesite='Lax', 
-                path='/api/token/refresh/',  
+                path='/api/accounts/token/refresh/',  
                 max_age=7 * 24 * 60 * 60, 
             )
             return response
@@ -94,6 +142,7 @@ class LoginView(APIView):
 
 
 class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
     def post(self,request):
         serializer = ForgotPasswordSerializer(data=request.data)
         if serializer.is_valid():
@@ -108,6 +157,7 @@ class ForgotPasswordView(APIView):
 
 
 class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
     def post(self,request):
         serializer = ResetPasswordSerializer(data=request.data)
         if serializer.is_valid():
@@ -116,6 +166,20 @@ class ResetPasswordView(APIView):
         return Response(serializer.errors,status=400)
 
 
+class TokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self,request):
+        refresh_token = request.COOKIES.get('refresh_token')
+        if refresh_token is None:
+            return Response({'detail':'Refresh token not provided.'},status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+            return Response({'access_token':access_token})
+        except Exception:
+            return Response({'detail': 'Invalid refresh token.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 
