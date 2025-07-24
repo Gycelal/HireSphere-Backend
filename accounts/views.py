@@ -15,15 +15,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
-    print('in register view')
     def post(self,request):
-        print("Registering user...")
         serializer = RegistrationSerializer(data=request.data)
         if serializer.is_valid():
             unverified_user = serializer.context.get('unverified_user')
             if unverified_user:
                 otp = generate_otp()
-                print('OTP:', otp)
                 store_otp(unverified_user.email,otp)
                 send_otp_email.delay(unverified_user.email,otp)
                 return Response(
@@ -40,9 +37,7 @@ class GoogleAuthView(APIView):
     permission_classes = [AllowAny]
     def post(self,request):
         serializer = GoogleAuthSerializer(data=request.data)
-        print("Authenticating with Google...")
         if serializer.is_valid():
-            print('Google authentication successful')
             refresh_token = serializer.context.get('refresh_token')
             validated_data = serializer.validated_data
 
@@ -62,11 +57,9 @@ class GoogleAuthView(APIView):
     
 
 class CompleteProfileView(APIView):
-    print('in complete profile view')
     permission_classes = [IsGoogleUser]  
 
     def post(self, request):
-        print('in post')
         serializer = CompleteProfileSerializer(data=request.data, context={'request': request})
         
         if serializer.is_valid():
@@ -82,13 +75,10 @@ class CompleteProfileView(APIView):
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
     def post(self,request):
-        print("Verifying OTP...")
         serializer = OTPVerifySerializer(data=request.data)
 
         if serializer.is_valid():
-            print('verified')
             return Response({'message': 'OTP verified successfully'})
-        print('not verified')
         return Response(serializer.errors, status=400)
 
 
@@ -115,7 +105,6 @@ class ResendOTPView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
     def post(self,request):
-        print("Logging in user...")
         serializer = LoginSerializer(data=request.data)
         
         if serializer.is_valid():
@@ -146,6 +135,7 @@ class ForgotPasswordView(APIView):
     def post(self,request):
         serializer = ForgotPasswordSerializer(data=request.data)
         if serializer.is_valid():
+            print('its valid')
             user = serializer.validated_data['user']
             token = PasswordResetTokenGenerator().make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))

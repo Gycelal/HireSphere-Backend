@@ -339,20 +339,29 @@ class OTPVerifySerializer(serializers.Serializer):
 
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-
-    def validate(self,data):
+    def validate(self, data):
         email = data.get('email')
 
-        validate_email_exists(email=email,should_exist=True)
+        # External check if it use  elsewhere
+        validate_email_exists(email=email, should_exist=True)
 
         try:
             user = CustomUser.objects.get(email=email)
         except CustomUser.DoesNotExist:
-            raise serializers.ValidationError("User with this email does not exist.")
+            raise serializers.ValidationError("No account found with this email address.")
+
         if not user.is_verified:
-            raise serializers.ValidationError('User Should verify the email first.')
+            raise serializers.ValidationError("Please verify your email before requesting a password reset.")
+
+        if user.registration_method == 'google':
+            raise serializers.ValidationError("This account uses Google Sign-In. Please log in with Google instead.")
+        
+        if user.role == 'admin':
+            raise serializers.ValidationError('System admins cannot reset their password this way. Please contact support.')
+
         data['user'] = user
         return data
+
 
 class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField()
