@@ -288,6 +288,9 @@ class LoginSerializer(serializers.Serializer):
             if not company or not company.is_approved:
                 raise serializers.ValidationError("Your account has not been approved by the admin yet.")
 
+        if user.is_staff or user.is_superuser:
+            raise serializers.ValidationError('Admin users cannot login from this portal.')
+
 
         refresh_token = RefreshToken.for_user(user)
         self.context['refresh_token'] = refresh_token
