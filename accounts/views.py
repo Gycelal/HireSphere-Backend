@@ -108,7 +108,7 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         
         if serializer.is_valid():
-            refresh_token = serializer.context.get('refresh_token')
+            refresh_token = serializer.validated_data['refresh_token']
             access_token = serializer.validated_data['access_token']
             user_data = serializer.validated_data['user']
 

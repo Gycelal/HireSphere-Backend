@@ -7,8 +7,6 @@ from .validators import (
     validate_password_match,
     validate_email_exists,
 )
-from rest_framework.validators import UniqueValidator
-from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .utils.otp import generate_otp, store_otp, verify_otp
 from .tasks import send_otp_email
@@ -307,6 +305,7 @@ class LoginSerializer(serializers.Serializer):
 
         return {
             'access_token': str(refresh_token.access_token),
+            'refresh_token': str(refresh_token),
             'user': user_data
         }    
 
