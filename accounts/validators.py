@@ -1,6 +1,7 @@
 import re
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from django.contrib.auth import authenticate
 
 User = get_user_model()
 
@@ -28,4 +29,13 @@ def validate_email_exists(email,should_exist=True):
         errors['email'] = "Email is already registered."
     if errors:
         raise serializers.ValidationError(errors)
+    
+
+
+def get_and_authenticate_user(email,password):
+    validate_email_exists(email=email, should_exist=True)
+    user = authenticate(email=email, password=password)
+    if not user:
+        raise serializers.ValidationError("Invalid credentials.")
+    return user
 

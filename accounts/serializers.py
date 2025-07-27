@@ -14,6 +14,7 @@ from .utils.otp import generate_otp, store_otp, verify_otp
 from .tasks import send_otp_email
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
+from .validators import get_and_authenticate_user
 
 import requests
 
@@ -270,13 +271,7 @@ class LoginSerializer(serializers.Serializer):
         email = data.get('email')
         password = data.get('password')
 
-        validate_email_exists(email=email,should_exist=True)
-
-        user = authenticate(email=email,password=password)
-        print('User:', user)
-
-        if not user:
-            raise serializers.ValidationError('Invalid credentials.')
+        user = get_and_authenticate_user(email=email,password=password)
         
         if user.is_blocked:
             raise serializers.ValidationError('Your account has been blocked by admin')
