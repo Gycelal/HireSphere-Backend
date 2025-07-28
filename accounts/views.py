@@ -10,6 +10,7 @@ from django.utils.encoding import force_bytes
 from rest_framework.permissions import AllowAny
 from .permissions import IsGoogleUser
 from rest_framework_simplejwt.tokens import RefreshToken
+from adminpanel.utils import handle_logout
 
 
 
@@ -173,5 +174,6 @@ class TokenRefreshView(APIView):
 
 
 
-
-
+class LogoutView(APIView):
+    def post(self,request):
+        return handle_logout()

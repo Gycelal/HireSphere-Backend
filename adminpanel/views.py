@@ -1,11 +1,9 @@
-from django.shortcuts import render
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from .serializers import AdminLoginSerializer
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken, TokenError
-
+from .utils import handle_logout
 # Create your views here.
 
 
@@ -38,7 +36,7 @@ class AdminLoginView(APIView):
             )
             return response
         return Response(serializer.errors,status=400)
-    
+
 
 class AdminLogout(APIView):
     def post(self, request):
@@ -46,14 +44,4 @@ class AdminLogout(APIView):
         if not request.user.is_superuser or not request.user.is_staff:
             return Response({"detail": "You are not authorized."}, status=403)
 
-        refresh_token = request.COOKIES.get('refresh_token')
-        if refresh_token:
-            try:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-            except TokenError:
-                pass  # Token is invalid or already blacklisted
-
-        response = Response({'detail': 'Admin logged out successfully.'}, status=200)
-        response.delete_cookie('refresh_token')
-        return response
+        return handle_logout(request)
