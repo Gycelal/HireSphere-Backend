@@ -176,4 +176,4 @@ class TokenRefreshView(APIView):
 
 class LogoutView(APIView):
     def post(self,request):
-        return handle_logout()
+        return handle_logout(request)

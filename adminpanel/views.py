@@ -1,9 +1,10 @@
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from .serializers import AdminLoginSerializer
+from .serializers import AdminLoginSerializer,CompanySerializer
 from rest_framework.response import Response
 from rest_framework import status
 from .utils import handle_logout
+from accounts.models import Company
 # Create your views here.
 
 
@@ -38,10 +39,17 @@ class AdminLoginView(APIView):
         return Response(serializer.errors,status=400)
 
 
-class AdminLogout(APIView):
+class AdminLogoutView(APIView):
     def post(self, request):
         #admin users only
         if not request.user.is_superuser or not request.user.is_staff:
             return Response({"detail": "You are not authorized."}, status=403)
 
         return handle_logout(request)
+    
+
+class PendingCompaniesView(APIView):
+    def get(self,request):
+        pending_companies = Company.objects.filter(is_approved=False)
+        serializer = CompanySerializer(pending_companies,many=True)
+        return Response(serializer.data,status=200)

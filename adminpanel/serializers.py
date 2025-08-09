@@ -2,6 +2,7 @@ from rest_framework import serializers
 from accounts.validators import get_and_authenticate_user
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.timezone import now
+from accounts.models import Company
 
 
 class AdminLoginSerializer(serializers.Serializer):
@@ -31,3 +32,12 @@ class AdminLoginSerializer(serializers.Serializer):
                 'role':user.role
             }
         }
+    
+
+class CompanySerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email')
+
+    class Meta:
+        model = Company
+        fields = ['id', 'company_name', 'registration_number', 'created_at', 'email']
+
