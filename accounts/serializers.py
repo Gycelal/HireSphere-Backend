@@ -278,7 +278,7 @@ class LoginSerializer(serializers.Serializer):
 
         if user.role in ['company_admin','company_member']:
             company = getattr(user, 'company', None)
-            if not company or not company.is_approved:
+            if not company or company.approval_status not in ['approved','Approved']:
                 raise serializers.ValidationError("Your account has not been approved by the admin yet.")
 
         if user.is_staff or user.is_superuser:

@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils import timezone
 from django.conf import settings
+from .constants import CompanyAdminApprovalStatus
 
 
 class CustomUserManager(BaseUserManager):
@@ -65,10 +66,15 @@ class CustomUser(AbstractBaseUser,PermissionsMixin):
 
 
 class Company(models.Model):
+    
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,related_name='company')
     company_name = models.CharField(max_length=255)
     registration_number = models.CharField(max_length=100,unique=True)
-    is_approved = models.BooleanField(default=False)
+    approval_status = models.CharField(
+        max_length=20,
+        choices=CompanyAdminApprovalStatus.choices,
+        default=CompanyAdminApprovalStatus.PENDING
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

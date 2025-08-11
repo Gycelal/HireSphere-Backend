@@ -12,8 +12,8 @@ class AdminLoginSerializer(serializers.Serializer):
     def validate(self, data):
         email = data.get('email')
         password = data.get('password')
-
         user = get_and_authenticate_user(email=email,password=password)
+        print('user',user)
 
         if not user.is_staff or not user.is_superuser:
             raise serializers.ValidationError('You are not authorized to access this panel.')
@@ -39,5 +39,5 @@ class CompanySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Company
-        fields = ['id', 'company_name', 'registration_number', 'created_at', 'email']
+        fields = ['id', 'company_name', 'registration_number', 'created_at', 'email','approval_status']
 
