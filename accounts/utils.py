@@ -1,5 +1,7 @@
 import random
 from django.core.cache import cache
+from rest_framework import serializers
+import re
 
 def generate_otp():
     return str(random.randint(100000, 999999))
@@ -23,3 +25,15 @@ def get_otp_resend_count(user_id):
     count = cache.get(key, 0)
     return count
 
+
+def validate_password(password, confirm_password):
+    
+    if password != confirm_password:
+        raise serializers.ValidationError({"confirm_password": "Password do not match."})
+        
+    if not re.search(r"\d", password):
+        raise serializers.ValidationError({"password": "Password must contain at least one digit."})
+    if not re.search(r"[A-Z]", password):
+        raise serializers.ValidationError({"password": "Password must contain at least one uppercase letter."})
+    
+    return True
