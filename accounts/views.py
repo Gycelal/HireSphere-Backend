@@ -36,6 +36,10 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        otp = generate_otp()
+        store_otp(user.id, otp)
+        send_verification_email.delay(user.email, otp)
+
         data = {
             "message": "User registered successfully. Please check your email for the OTP to verify your account.",
             "user_id": user.id,

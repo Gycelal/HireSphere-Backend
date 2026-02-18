@@ -1,7 +1,5 @@
 from rest_framework import serializers
 from .models import User
-from .utils import generate_otp, store_otp
-from .tasks import send_verification_email
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  
 from .utils import validate_password
 from django.core.cache import cache
@@ -38,21 +36,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         else:
             validated_data['is_approved'] = True
 
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-
-        otp = generate_otp()
-        store_otp(user.id, otp)
-        send_verification_email.delay(user.email, otp)
-
+        user = User.objects.create_user(
+            password=password,
+            **validated_data
+        )
 
         return user
-    
-
 
 class LoginSerializer(TokenObtainPairSerializer):
-
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
