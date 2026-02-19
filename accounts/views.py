@@ -22,7 +22,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from rest_framework_simplejwt.exceptions import TokenError
 import uuid
 
 # Create your views here.
@@ -138,8 +138,6 @@ class LoginView(TokenObtainPairView):
         response = super().post(request, *args, **kwargs)
 
         refresh = response.data.get("refresh")
-        access = response.data.get("access")
-
         response.set_cookie(
             key="refresh_token",
             value=refresh,
@@ -173,6 +171,7 @@ class CookieTokenRefreshView(TokenRefreshView):
 
 
 class LogoutView(APIView):
+
     def post(self, request, *args, **kwargs):
         refresh_token = request.COOKIES.get("refresh_token")
         if not refresh_token:

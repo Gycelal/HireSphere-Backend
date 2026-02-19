@@ -7,7 +7,6 @@ from django.core.cache import cache
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    #  first_name, last_name, email, password, confirm_password, role
 
     password = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True, min_length=8)
