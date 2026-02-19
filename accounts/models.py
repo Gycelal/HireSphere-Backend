@@ -19,7 +19,6 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_verified', True)
-        extra_fields.setdefault('is_approved', True)
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError("Superuser must have is_staff=True.")
@@ -36,10 +35,16 @@ class User(AbstractUser):
         ('recruiter', 'Recruiter'))
     
     username = None
+    approval_status = models.CharField(max_length=20, default='not_required',
+        choices=(
+            ('not_required', 'Not Required'),
+            ('pending', 'Pending'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected')
+        ))
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
-    is_approved = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
 

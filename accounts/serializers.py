@@ -16,7 +16,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'password', 'confirm_password',  'role']
-        read_only_fields = ['is_verified', 'is_approved']
+        read_only_fields = ['is_verified', 'approval_status']
 
     
     def validate(self, data):
@@ -31,9 +31,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password')
 
         if validated_data.get('role') == 'recruiter':
-            validated_data['is_approved'] = False
-        else:
-            validated_data['is_approved'] = True
+            validated_data['approval_status'] = "pending"
+        
 
         user = User.objects.create_user(
             password=password,
