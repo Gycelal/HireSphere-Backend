@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from rest_framework import generics
 from .serializers import (
     UserRegistrationSerializer,
@@ -37,6 +36,7 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         otp = generate_otp()
+        print(f"Generated OTP for {user.email}: {otp}")
         store_otp(user.id, otp)
         send_verification_email.delay(user.email, otp)
 
