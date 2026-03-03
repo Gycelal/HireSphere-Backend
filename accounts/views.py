@@ -133,11 +133,24 @@ class ResendOTPView(generics.GenericAPIView):
 class LoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
-
     def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        refresh = response.data.get("refresh")
+        user = serializer.user
+        tokens = serializer.validated_data
+
+        refresh = tokens["refresh"]
+        access = tokens["access"]
+
+        response = Response({
+            "access": access,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "role": user.role
+            } 
+        })
         response.set_cookie(
             key="refresh_token",
             value=refresh,
@@ -145,7 +158,6 @@ class LoginView(TokenObtainPairView):
             secure=True,
             samesite="None",
         )
-        response.data.pop("refresh")
         return response
 
 
