@@ -42,20 +42,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 class LoginSerializer(TokenObtainPairSerializer):
-
     def validate(self, attrs):
         data = super().validate(attrs)
-
         if not self.user.is_verified:
-            raise serializers.ValidationError("Email is not verified. Please verify your email before logging in.")
+            raise serializers.ValidationError({"detail": "Email not verified. Please verify your email before logging in."})
         return data
-    
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-        token['email'] = user.email
-        token['role'] = user.role
-        return token
     
 
 class ResetPasswordSerializer(serializers.Serializer):

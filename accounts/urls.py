@@ -6,7 +6,7 @@ from .views import (
     LoginView,
     CookieTokenRefreshView,
     LogoutView,
-    ForgotPasswordView,
+    ForgotPasswordView, 
     ResetPasswordView,
 )
 
