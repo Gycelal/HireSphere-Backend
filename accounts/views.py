@@ -3,6 +3,8 @@ from .serializers import (
     UserRegistrationSerializer,
     LoginSerializer,
     ResetPasswordSerializer,
+    GoogleAuthSerializer,
+    UserSerializer,
 )
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -23,6 +25,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 import uuid
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from django.conf import settings
 
 # Create your views here.
 
@@ -31,7 +36,7 @@ class UserRegistrationView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = UserRegistrationSerializer
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -50,7 +55,7 @@ class UserRegistrationView(generics.CreateAPIView):
 class EmailVerificationView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         user_id = request.data.get("user_id")
         otp_from_user = request.data.get("otp")
         if not user_id or not otp_from_user:
@@ -88,7 +93,7 @@ class EmailVerificationView(generics.GenericAPIView):
 class ResendOTPView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         user_id = request.data.get("user_id")
         if not user_id:
             return Response(
@@ -133,7 +138,8 @@ class ResendOTPView(generics.GenericAPIView):
 class LoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
-    def post(self, request, *args, **kwargs):
+
+    def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -143,14 +149,12 @@ class LoginView(TokenObtainPairView):
         refresh = tokens["refresh"]
         access = tokens["access"]
 
-        response = Response({
-            "access": access,
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "role": user.role
-            } 
-        })
+        response = Response(
+            {
+                "access": access,
+                "user": {"id": user.id, "email": user.email, "role": user.role},
+            }
+        )
         response.set_cookie(
             key="refresh_token",
             value=refresh,
@@ -163,7 +167,7 @@ class LoginView(TokenObtainPairView):
 
 class CookieTokenRefreshView(TokenRefreshView):
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
 
         refresh_token = request.COOKIES.get("refresh_token")
         if not refresh_token:
@@ -184,7 +188,7 @@ class CookieTokenRefreshView(TokenRefreshView):
 
 class LogoutView(APIView):
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         refresh_token = request.COOKIES.get("refresh_token")
         if not refresh_token:
             return Response(
@@ -208,7 +212,7 @@ class LogoutView(APIView):
 class ForgotPasswordView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         email = request.data.get("email")
         if not email:
             return Response(
@@ -239,7 +243,7 @@ class ForgotPasswordView(generics.GenericAPIView):
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -248,3 +252,67 @@ class ResetPasswordView(APIView):
         )
 
 
+class GoogleAuthView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = GoogleAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        google_token = serializer.validated_data["id_token"]
+
+        try:
+            # Verify Google ID token
+            idinfo = id_token.verify_oauth2_token(
+                google_token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID
+            )
+
+            email = idinfo.get("email")
+            first_name = idinfo.get("given_name") or ""
+            last_name = idinfo.get("family_name") or ""
+
+            # Create user if not exists
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "role": None,
+                },
+            )
+
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access = str(refresh.access_token)
+
+            # Serialize user
+            user_data = UserSerializer(user).data
+
+
+            response = Response(
+                {
+                    "success": True,
+                    "message": "Google login successful.",
+                    "user": user_data,
+                    "access": access,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+            # Set refresh token as HttpOnly cookie
+            response.set_cookie(
+                key="refresh_token",
+                value=str(refresh),
+                httponly=True,
+                secure=True,   
+                samesite="None"  
+            )
+
+            return response
+
+        except ValueError:
+            return Response(
+                {"success": False, "error": "Invalid Google token."},
+                status=status.HTTP_400_BAD_REQUEST
+            )

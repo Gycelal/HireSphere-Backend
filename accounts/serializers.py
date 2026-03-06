@@ -78,7 +78,21 @@ class ResetPasswordSerializer(serializers.Serializer):
         user.save()
         token = self.validated_data['token']
         cache.delete(f"forgot_password_token:{token}")
+
+class GoogleAuthSerializer(serializers.Serializer):
+    id_token = serializers.CharField()
     
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+        ]
 
 
     

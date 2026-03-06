@@ -39,6 +39,8 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -95,6 +97,7 @@ INSTALLED_APPS = [
     'accounts',
     'rest_framework_simplejwt.token_blacklist',
     'recruiter_panel',
+    'platform_admin',
 ]
 
 MIDDLEWARE = [
