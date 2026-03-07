@@ -49,7 +49,7 @@ class UserRegistrationView(generics.CreateAPIView):
             "message": "User registered successfully. Please check your email for the OTP to verify your account.",
             "user_id": user.id,
         }
-        return Response(data, status=status.HTTP_201_CREATED)
+        return Response(data, status=status.HTTP_201_CREATED)  
 
 
 class EmailVerificationView(generics.GenericAPIView):

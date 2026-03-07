@@ -25,6 +25,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         validate_password(password, confirm_password)
         return data
     
+    def validate_email(self, value):
+        return value.lower()
+        
 
     def create(self, validated_data):
         validated_data.pop('confirm_password')
