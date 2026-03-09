@@ -16,6 +16,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'password', 'confirm_password',  'role']
+        extra_kwargs= {
+            "email": {"validators": []}
+        }
         read_only_fields = ['is_verified', 'approval_status']
 
     
@@ -32,10 +35,29 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         password = validated_data.pop('password')
+        email = validated_data.pop('email')
 
+        user = User.objects.filter(email=email).first()
+
+        # Existing User case 
+        if user:
+            if user.is_verified:
+                raise serializers.ValidationError(
+                    {"email": "User with this email already exist."}
+                )
+            # exists but not verified
+            else:
+                user.set_password(password)
+                for attr, value in validated_data.items():
+                    setattr(user, attr, value)
+                
+                if validated_data.get('role') == 'recruiter':
+                    validated_data['approval_status'] = "pending"
+                user.save()
+                return user
+        # new user
         if validated_data.get('role') == 'recruiter':
             validated_data['approval_status'] = "pending"
-        
 
         user = User.objects.create_user(
             password=password,

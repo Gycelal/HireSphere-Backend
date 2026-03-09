@@ -73,7 +73,7 @@ class EmailVerificationView(generics.GenericAPIView):
 
         if not stored_otp:
             return Response(
-                {"error": "OTP has expired or is invalid."},
+                {"error": "OTP has expired or invalid."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -95,6 +95,7 @@ class ResendOTPView(generics.GenericAPIView):
 
     def post(self, request):
         user_id = request.data.get("user_id")
+        print("yeah user got in the view:", user_id)
         if not user_id:
             return Response(
                 {"error": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST
@@ -127,10 +128,11 @@ class ResendOTPView(generics.GenericAPIView):
             cache.incr(f"otp:resend_count:{user_id}")
 
         new_otp = generate_otp()
+        print("new otp:", new_otp)
         store_otp(user_id, new_otp)
         send_verification_email.delay(user.email, new_otp)
         return Response(
-            {{"message": "If this email exists, a password reset link has been sent."}},
+            {"message": "The OTP has been shared to your mail."},
             status=status.HTTP_200_OK,
         )
 
