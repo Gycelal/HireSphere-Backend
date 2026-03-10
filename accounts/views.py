@@ -218,7 +218,7 @@ class ForgotPasswordView(generics.GenericAPIView):
         email = request.data.get("email")
         if not email:
             return Response(
-                {"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
+                {"email": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
             )
         try:
             user = User.objects.get(email=email)
@@ -229,10 +229,16 @@ class ForgotPasswordView(generics.GenericAPIView):
                 },
                 status=status.HTTP_200_OK,
             )
+        limit_key = f"forgot_password_limit:{email}"
+        count = cache.get(limit_key, 0)
+        print("email send count:", count)
+        if count >= 3:
+            return Response({"error": "Too many requests. Pleas try again later."} ,status=status.HTTP_429_TOO_MANY_REQUESTS)
         token = str(uuid.uuid4())
         cache.set(f"forgot_password_token:{token}", user.id, timeout=900)
         print(f"Generated token for {email}: {token}")
         send_forgot_password_email.delay(email, token)
+        cache.set(limit_key, count + 1, timeout=90)
 
         return Response(
             {
