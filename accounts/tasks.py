@@ -12,7 +12,7 @@ def send_verification_email(email, otp):
 @shared_task
 def send_forgot_password_email(email, token):
     subject = "Password Reset Request"
-    message = f"Use the following Link to reset your password: http://localhost:3000/reset-password?token={token}"
+    message = f"Use the following Link to reset your password: http://localhost:5173/auth/reset-password/{token}"
     from_email = "krgycelal@gmail.com"
     recipient_list = [email]
     send_mail(subject, message, from_email, recipient_list)

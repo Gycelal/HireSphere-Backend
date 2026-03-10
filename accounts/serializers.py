@@ -77,30 +77,39 @@ class LoginSerializer(TokenObtainPairSerializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True, min_length=8)
 
     def validate(self, data):
+        print("validating passwords")
         token = data.get('token')
         user_id = cache.get(f"forgot_password_token:{token}")
         print(user_id)
         if not user_id:
-            raise serializers.ValidationError({"token": "Invalid or expired token."})
+            raise serializers.ValidationError({"error": "Invalid or expired token."})
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
-            raise serializers.ValidationError({"token": "User does not exist."})
+            raise serializers.ValidationError({"error": "User does not exist."})
+        password = data.get('password')
+        # whether the new password is same as the old password
+        if user.check_password(password):
+            print("Same password")
+            raise serializers.ValidationError({
+                "password": "New password cannot be the same as the old password."
+            })
+        
         data['user'] = user
         data['token'] = token
-        new_password = data.get('new_password')
         confirm_password = data.get('confirm_password')
-        validate_password(new_password, confirm_password)
+        validate_password(password, confirm_password)
         return data
     
     def save(self):
+        print("saving passwords")
         user = self.validated_data['user']
-        new_password = self.validated_data['new_password']
-        user.set_password(new_password)
+        password = self.validated_data['password']
+        user.set_password(password)
         user.save()
         token = self.validated_data['token']
         cache.delete(f"forgot_password_token:{token}")
