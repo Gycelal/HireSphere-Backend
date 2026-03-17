@@ -1,8 +1,11 @@
 from django.urls import path
 from .views import AdminRecruiterViewSet
+from rest_framework.routers import DefaultRouter
+from .views import AdminRecruiterViewSet
 
+router = DefaultRouter()
+router.register(r"recruiters", AdminRecruiterViewSet, basename="admin-recruiters")
 
-urlpatterns =[
-    # path("recruiters/", AdminRecruiterViewSet.as_view(), name="admin-recruiters"),
-]
+urlpatterns = router.urls
+
 

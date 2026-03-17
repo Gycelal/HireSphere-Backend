@@ -17,5 +17,22 @@ class RecruiterProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def profile_completion(self):
+        user = self.user
+        fields = [
+            user.first_name,
+            user.last_name,
+            user.email,
+            self.display_name,
+            self.profile_picture,
+            self.recruiter_type,
+            self.company_or_brand_name,
+            self.website_url,
+            self.location
+        ]
+        completed = sum(1 for field in fields if field)
+        total = len(completed)
+        return int((completed/total) * 100) if total > 0 else 0
+
     def __str__(self):
         return self.display_name

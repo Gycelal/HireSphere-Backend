@@ -71,7 +71,7 @@ class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         if not self.user.is_verified:
-            raise serializers.ValidationError({"detail": "Email not verified. Please verify your email before logging in."})
+            raise serializers.ValidationError({"error": "Email not verified. Please verify your email before logging in."})
         return data
     
 
