@@ -28,8 +28,10 @@ import uuid
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from django.conf import settings
-
+import logging
 # Create your views here.
+
+logger = logging.getLogger(__name__)
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -41,7 +43,7 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         otp = generate_otp()
-        print(f"Generated OTP for {user.email}: {otp}")
+        logger.debug("OTP for %s is %s", user.email, otp)
         store_otp(user.id, otp)
         send_verification_email.delay(user.email, otp)
 
@@ -231,7 +233,6 @@ class ForgotPasswordView(generics.GenericAPIView):
             )
         limit_key = f"forgot_password_limit:{email}"
         count = cache.get(limit_key, 0)
-        print("email send count:", count)
         if count >= 3:
             return Response({"error": "Too many requests. Pleas try again later."} ,status=status.HTTP_429_TOO_MANY_REQUESTS)
         token = str(uuid.uuid4())

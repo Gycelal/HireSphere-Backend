@@ -24,11 +24,12 @@ class AdminRecruiterViewSet(ModelViewSet):
         status_param = self.request.query_params.get("status")
         search_param = self.request.query_params.get("search")
 
-        if status_param:
+        if status_param and status_param != "all":
             recruiters = recruiters.filter(approval_status=status_param)
-        elif not search_param:
+        elif not status_param and not search_param:
             recruiters = recruiters.filter(approval_status="pending")
 
+        print("recruiters:", recruiters)
         return recruiters
     
     def get_serializer_class(self):

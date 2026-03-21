@@ -181,3 +181,42 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+import os
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    "formatters": {
+        "simple": {
+            "format": "[{levelname}] {asctime} {name} - {message}",
+            "style": "{",
+        },
+    },
+
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "app.log"),
+            "formatter": "simple",
+        },
+    },
+
+    "loggers": {
+        "": {  # root logger
+            "handlers": ["console", "file"],
+            "level": "DEBUG",   # change later for production
+        },
+        "celery": {
+            "handlers": ["console"],
+            "level": "WARNING", 
+            "propagate": False,
+        }
+    },
+}

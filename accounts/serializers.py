@@ -81,10 +81,8 @@ class ResetPasswordSerializer(serializers.Serializer):
     confirm_password = serializers.CharField(write_only=True, min_length=8)
 
     def validate(self, data):
-        print("validating passwords")
         token = data.get('token')
         user_id = cache.get(f"forgot_password_token:{token}")
-        print(user_id)
         if not user_id:
             raise serializers.ValidationError({"error": "Invalid or expired token."})
         try:
