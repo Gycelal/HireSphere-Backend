@@ -127,5 +127,34 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
         ]
 
+class SetRoleSerializer(serializers.ModelSerializer):
+    role = serializers.ChoiceField(
+        choices=User.ROLE_CHOICES,
+        required=True,
+        allow_null=False
+    )
+
+    class Meta:
+        model = User
+        fields = ["role"]
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+
+        if user.role:
+            raise serializers.ValidationError({
+                "code": "ROLE_ALREADY_SET",
+                "message": "Role already assigned"
+            })
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance.role = validated_data.get("role")
+        instance.save()
+        return instance
+
+
+
 
     

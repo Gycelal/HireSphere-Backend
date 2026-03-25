@@ -5,6 +5,7 @@ from .serializers import (
     ResetPasswordSerializer,
     GoogleAuthSerializer,
     UserSerializer,
+    SetRoleSerializer,
 )
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -29,6 +30,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from django.conf import settings
 import logging
+
 # Create your views here.
 
 logger = logging.getLogger(__name__)
@@ -51,7 +53,7 @@ class UserRegistrationView(generics.CreateAPIView):
             "message": "User registered successfully. Please check your email for the OTP to verify your account.",
             "user_id": user.id,
         }
-        return Response(data, status=status.HTTP_201_CREATED)  
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class EmailVerificationView(generics.GenericAPIView):
@@ -163,8 +165,10 @@ class LoginView(TokenObtainPairView):
             key="refresh_token",
             value=refresh,
             httponly=True,
-            secure=True,
-            samesite="None",
+            secure=False,
+            samesite="Lax",
+            # max_age=60 * 60 * 24 * 7,  # 7 days - match your JWT refresh lifetime
+            # path="/",  # Entire site access
         )
         return response
 
@@ -234,7 +238,10 @@ class ForgotPasswordView(generics.GenericAPIView):
         limit_key = f"forgot_password_limit:{email}"
         count = cache.get(limit_key, 0)
         if count >= 3:
-            return Response({"error": "Too many requests. Pleas try again later."} ,status=status.HTTP_429_TOO_MANY_REQUESTS)
+            return Response(
+                {"error": "Too many requests. Pleas try again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         token = str(uuid.uuid4())
         cache.set(f"forgot_password_token:{token}", user.id, timeout=900)
         print(f"Generated token for {email}: {token}")
@@ -272,9 +279,7 @@ class GoogleAuthView(APIView):
         try:
             # Verify Google ID token
             idinfo = id_token.verify_oauth2_token(
-                google_token,
-                google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID
+                google_token, google_requests.Request(), settings.GOOGLE_CLIENT_ID
             )
 
             email = idinfo.get("email")
@@ -298,7 +303,6 @@ class GoogleAuthView(APIView):
             # Serialize user
             user_data = UserSerializer(user).data
 
-
             response = Response(
                 {
                     "success": True,
@@ -314,8 +318,8 @@ class GoogleAuthView(APIView):
                 key="refresh_token",
                 value=str(refresh),
                 httponly=True,
-                secure=True,   
-                samesite="None"  
+                secure=False,
+                samesite="Lax",
             )
 
             return response
@@ -323,5 +327,28 @@ class GoogleAuthView(APIView):
         except ValueError:
             return Response(
                 {"success": False, "error": "Invalid Google token."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class SetRoleView(APIView):
+
+    def post(self, request):
+        serializer = SetRoleSerializer(
+            request.user,
+            data=request.data,
+            context={"request": request}
+        )
+
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response(
+            {
+                "success": True,
+                "message": "Role set successfully.",
+                "user": UserSerializer(user).data
+            },
+            status=status.HTTP_200_OK
+        )
+

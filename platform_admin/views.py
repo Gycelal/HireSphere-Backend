@@ -6,13 +6,15 @@ from rest_framework import status
 from rest_framework.response import Response
 from .serializers import AdminRecruiterListSerializer, AdminRecruiterApprovalSerializer
 from rest_framework.decorators import action
+import logging
 # Create your views here.
 
+logger = logging.getLogger(__name__)
 
 
 class AdminRecruiterViewSet(ModelViewSet):
     permission_classes = [IsAdminUser]
-
+    logger.debug("in AdminRecruiterViewSet class")
     from rest_framework.filters import SearchFilter, OrderingFilter
     filter_backends = [SearchFilter, OrderingFilter]
 
@@ -28,8 +30,6 @@ class AdminRecruiterViewSet(ModelViewSet):
             recruiters = recruiters.filter(approval_status=status_param)
         elif not status_param and not search_param:
             recruiters = recruiters.filter(approval_status="pending")
-
-        print("recruiters:", recruiters)
         return recruiters
     
     def get_serializer_class(self):
@@ -45,6 +45,7 @@ class AdminRecruiterViewSet(ModelViewSet):
 
     @action(detail=True, methods=["patch"])
     def approval(self, request, pk=None, *args, **kwargs):
+        logger.debug("In approval method")
         # Logic to approve a recruiter
         recruiter = self.get_object()
 

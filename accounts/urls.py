@@ -8,7 +8,8 @@ from .views import (
     LogoutView,
     ForgotPasswordView, 
     ResetPasswordView,
-    GoogleAuthView
+    GoogleAuthView,
+    SetRoleView
 )
 
 
@@ -21,5 +22,6 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset_password"),
-    path("google/", GoogleAuthView.as_view(), name="google")
+    path("google/", GoogleAuthView.as_view(), name="google"),
+    path("set-role/", SetRoleView.as_view(), name="set_role"),
 ]
