@@ -293,6 +293,7 @@ class GoogleAuthView(APIView):
                     "first_name": first_name,
                     "last_name": last_name,
                     "role": None,
+                    "is_verified": True,
                 },
             )
 
