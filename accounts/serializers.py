@@ -136,7 +136,7 @@ class SetRoleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["role"]
+        fields = ["role", "approval_status"]
 
     def validate(self, attrs):
         user = self.context["request"].user
@@ -150,7 +150,10 @@ class SetRoleSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
-        instance.role = validated_data.get("role")
+        role = validated_data.get("role")
+        instance.role = role
+        if role == "recruiter":
+            instance.approval_status = "pending"
         instance.save()
         return instance
 
