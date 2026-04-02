@@ -167,8 +167,6 @@ class LoginView(TokenObtainPairView):
             httponly=True,
             secure=False,
             samesite="Lax",
-            # max_age=60 * 60 * 24 * 7,  # 7 days - match your JWT refresh lifetime
-            # path="/",  # Entire site access
         )
         return response
 
