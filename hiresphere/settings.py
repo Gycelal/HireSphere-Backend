@@ -98,6 +98,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'recruiter_panel',
     'platform_admin',
+    'candidate',
+    'django.contrib.postgres',
 ]
 
 MIDDLEWARE = [
