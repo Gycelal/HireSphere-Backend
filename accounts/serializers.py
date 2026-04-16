@@ -3,6 +3,9 @@ from .models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  
 from .utils import validate_password
 from django.core.cache import cache
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -125,6 +128,7 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "role",
+            "approval_status",
         ]
 
 class SetRoleSerializer(serializers.ModelSerializer):

@@ -158,7 +158,7 @@ class LoginView(TokenObtainPairView):
         response = Response(
             {
                 "access": access,
-                "user": {"id": user.id, "email": user.email, "role": user.role},
+                "user": {"id": user.id, "email": user.email, "role": user.role, "approval_status": user.approval_status},
             }
         )
         response.set_cookie(
