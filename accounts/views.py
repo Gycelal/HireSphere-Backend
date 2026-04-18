@@ -6,6 +6,7 @@ from .serializers import (
     GoogleAuthSerializer,
     UserSerializer,
     SetRoleSerializer,
+    TokenVerifySerializer
 )
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -264,6 +265,16 @@ class ResetPasswordView(APIView):
         return Response(
             {"message": "Password reset successfully."}, status=status.HTTP_200_OK
         )
+
+class VerifyResetTokenView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        serializer = TokenVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"message": "Token is valid."}, status=status.HTTP_200_OK
+        )
+
 
 
 class GoogleAuthView(APIView):

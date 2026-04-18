@@ -9,7 +9,8 @@ from .views import (
     ForgotPasswordView, 
     ResetPasswordView,
     GoogleAuthView,
-    SetRoleView
+    SetRoleView,
+    VerifyResetTokenView
 )
 
 
@@ -24,4 +25,5 @@ urlpatterns = [
     path("reset-password/", ResetPasswordView.as_view(), name="reset_password"),
     path("google/", GoogleAuthView.as_view(), name="google"),
     path("set-role/", SetRoleView.as_view(), name="set_role"),
+    path("verify-reset-token/", VerifyResetTokenView.as_view(), name="verify_reset_token"),
 ]
