@@ -27,6 +27,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", cast=bool)
 
+PASSWORD_RESET_TIMEOUT = 900  # 15 minutes expressed in seconds
 ALLOWED_HOSTS = []
 
 

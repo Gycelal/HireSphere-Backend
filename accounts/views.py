@@ -242,7 +242,7 @@ class ForgotPasswordView(generics.GenericAPIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
         token = str(uuid.uuid4())
-        cache.set(f"forgot_password_token:{token}", user.id, timeout=900)
+        cache.set(f"forgot_password_token:{token}", user.id, timeout=settings.PASSWORD_RESET_TIMEOUT)
         print(f"Generated token for {email}: {token}")
         send_forgot_password_email.delay(email, token)
         cache.set(limit_key, count + 1, timeout=90)
