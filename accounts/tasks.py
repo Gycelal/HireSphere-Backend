@@ -32,7 +32,7 @@ def send_forgot_password_email(email, token):
         f"We received a request to reset your password for your HireSphere account.\n\n"
         f"Use the following link to reset your password:\n"
         f"{frontend_url}/reset-password/{token}\n\n"
-        f"This link will expire in {expiry_minutes} minutes. If you did not request a password reset, please ignore this email.\n\n"
+        f"You will not be able to use this link to reset your password after {expiry_minutes} minutes. If you did not request a password reset, please ignore this email.\n\n"
         f"Stay safe,\nThe HireSphere Team"
     )
     send_mail(subject, message, from_email, [email])
