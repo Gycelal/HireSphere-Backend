@@ -14,10 +14,10 @@ class RecruiterProfile(models.Model):
     
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recruiterprofile")
     display_name = models.CharField(max_length=255, blank=True)
-    profile_picture = models.URLField(blank=True)
+    profile_picture = models.URLField(null=True, blank=True)
     recruiter_type = models.CharField(max_length=255, blank=True, choices=RECRUITER_TYPES)
     company_or_brand_name = models.CharField(max_length=255, blank=True)
-    website_url = models.URLField(blank=True)
+    website_url = models.URLField(null=True, blank=True)
     # subscription_plan = models.ForeignKey(on_delete=models.SET_NULL, null=True, blank=True, related_name="recruiterprofile")
     location = models.CharField(max_length=255, blank=True)
 

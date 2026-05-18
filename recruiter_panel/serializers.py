@@ -19,6 +19,7 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     profile = RecruiterProfileSerializer(source="recruiterprofile", required=False)
     completion_percentage = serializers.SerializerMethodField()
+    email  = serializers.EmailField(read_only=True)
 
     class Meta:
         model = User
@@ -49,17 +50,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
         user.last_name = validated_data.get("last_name", user.last_name)
         user.save()
 
-        if profile_data:
+        if profile_data is not None:
             profile, created = RecruiterProfile.objects.get_or_create(user=user)
 
-            serializer = RecruiterProfileSerializer(
-                profile,
-                data=profile_data,
-                partial=True
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+            for attr, value in profile_data.items():
+                setattr(profile, attr, value)
+
+            profile.save()
             user.recruiterprofile = profile
-        # user.refresh_from_db()  # Refresh user instance to get updated profile data
+        user.refresh_from_db()  # Refresh user instance to get updated profile data
         return user
     
