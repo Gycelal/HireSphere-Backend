@@ -1,29 +1,72 @@
 from rest_framework import serializers
 from accounts.models import User
 from .models import RecruiterProfile
+import re
 
-
-class RecruiterProfileSerializer(serializers.ModelSerializer):
+RECRUITER_PROFILE_FIELDS = [
+    "display_name",
+    "profile_picture",
+    "recruiter_type",
+    "company_or_brand_name",
+    "website_url",
+    "location",
+]
+class RecruiterSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = RecruiterProfile
-        fields = [
-            "display_name",
-            "profile_picture",
-            "recruiter_type",
-            "company_or_brand_name",
-            "website_url",
-            "location",
-        ]
+        fields = RECRUITER_PROFILE_FIELDS
     
-class UserProfileSerializer(serializers.ModelSerializer):
-    profile = RecruiterProfileSerializer(source="recruiterprofile", required=False)
+    def validate_display_name(self, value):
+        value = value.strip()
+        if value.isdigit():
+            raise serializers.ValidationError(
+                "Display name cannot contain only numbers."
+            )
+
+        if not re.match(r"^[A-Za-z0-9 ]+$", value):
+            raise serializers.ValidationError(
+                "Only letters, numbers, and spaces are allowed."
+            )
+
+        return value
+    def validate_company_or_brand_name(self, value):
+        value = value.strip()
+
+        if value.isdigit():
+            raise serializers.ValidationError(
+                "Company or brand name cannot contain only numbers."
+            )
+
+        if not re.match(r"^[A-Za-z0-9 .&-]+$", value):
+            raise serializers.ValidationError(
+                "Only letters, numbers, spaces, '.', '&', and '-' are allowed."
+            )
+        return value
+    def validate_location(self, value):
+        value = value.strip()
+
+        if value.isdigit():
+            raise serializers.ValidationError(
+                "Location cannot contain only numbers."
+            )
+
+        if not re.match(r"^[A-Za-z0-9 ,.-]+$", value):
+            raise serializers.ValidationError(
+                "Invalid characters in location."
+            )
+
+        return value
+
+class RecruiterProfileSerializer(serializers.ModelSerializer):
+    profile = RecruiterSerializer(source="recruiterprofile", required=False)
     completion_percentage = serializers.SerializerMethodField()
     email  = serializers.EmailField(read_only=True)
 
     class Meta:
         model = User
         fields = ["first_name", "last_name", "email", "profile", "completion_percentage"]
+    
 
     def get_completion_percentage(self, user):
         profile = getattr(user, "recruiterprofile", None)
@@ -32,7 +75,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             user.last_name,
             user.email,
         ]
-        profile_fields = RecruiterProfileSerializer.Meta.fields
+        profile_fields = RECRUITER_PROFILE_FIELDS
         if profile:
             fields.extend([getattr(profile, field) for field in profile_fields])
         else:
@@ -44,20 +87,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def update(self, user, validated_data):
         profile_data = validated_data.pop("recruiterprofile", None)
-        
-        # update user
-        user.first_name = validated_data.get("first_name", user.first_name)
-        user.last_name = validated_data.get("last_name", user.last_name)
+        for attr, value in validated_data.items():
+            setattr(user, attr, value)
         user.save()
-
-        if profile_data is not None:
+        if profile_data:
             profile, created = RecruiterProfile.objects.get_or_create(user=user)
-
             for attr, value in profile_data.items():
                 setattr(profile, attr, value)
-
             profile.save()
-            user.recruiterprofile = profile
-        user.refresh_from_db()  # Refresh user instance to get updated profile data
         return user
+
+
+    
     
