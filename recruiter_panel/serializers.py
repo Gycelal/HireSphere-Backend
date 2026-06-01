@@ -19,6 +19,9 @@ class RecruiterSerializer(serializers.ModelSerializer):
     
     def validate_display_name(self, value):
         value = value.strip()
+        if value == "":
+            return value
+        
         if value.isdigit():
             raise serializers.ValidationError(
                 "Display name cannot contain only numbers."
@@ -30,8 +33,11 @@ class RecruiterSerializer(serializers.ModelSerializer):
             )
 
         return value
+    
     def validate_company_or_brand_name(self, value):
         value = value.strip()
+        if value == "":
+            return value
 
         if value.isdigit():
             raise serializers.ValidationError(
@@ -45,7 +51,9 @@ class RecruiterSerializer(serializers.ModelSerializer):
         return value
     def validate_location(self, value):
         value = value.strip()
-
+        if value == "":
+            return value
+        
         if value.isdigit():
             raise serializers.ValidationError(
                 "Location cannot contain only numbers."
