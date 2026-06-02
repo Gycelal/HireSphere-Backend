@@ -15,6 +15,7 @@ class RecruiterProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recruiterprofile")
     display_name = models.CharField(max_length=255, blank=True)
     profile_picture = models.URLField(null=True, blank=True)
+    profile_picture_public_id = models.CharField(max_length=255,null=True, blank=True)
     recruiter_type = models.CharField(max_length=255, blank=True, choices=RECRUITER_TYPES)
     company_or_brand_name = models.CharField(max_length=255, blank=True)
     website_url = models.URLField(null=True, blank=True)

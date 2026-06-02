@@ -105,6 +105,18 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
             profile.save()
         return user
 
+class ProfilePictureSerializer(serializers.Serializer):
+    profile_picture = serializers.ImageField()
+
+    def validate_profile_picture(self, image):
+        
+        if image.content_type not in ['image/jpeg', 'image/png']:
+            raise serializers.ValidationError("Only JPEG and PNG images are allowed.")
+        if image.size > 2 * 1024 * 1024:  # 2MB limit
+            raise serializers.ValidationError("Profile picture must be less than 2MB.")
+        return image
+
+
 
     
     
