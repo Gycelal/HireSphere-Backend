@@ -6,6 +6,7 @@ from .serializers import (
     GoogleAuthSerializer,
     UserSerializer,
     SetRoleSerializer,
+    TokenVerifySerializer
 )
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -158,7 +159,7 @@ class LoginView(TokenObtainPairView):
         response = Response(
             {
                 "access": access,
-                "user": {"id": user.id, "email": user.email, "role": user.role},
+                "user": {"id": user.id, "email": user.email, "role": user.role, "approval_status": user.approval_status},
             }
         )
         response.set_cookie(
@@ -241,7 +242,7 @@ class ForgotPasswordView(generics.GenericAPIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
         token = str(uuid.uuid4())
-        cache.set(f"forgot_password_token:{token}", user.id, timeout=900)
+        cache.set(f"forgot_password_token:{token}", user.id, timeout=settings.PASSWORD_RESET_TIMEOUT)
         print(f"Generated token for {email}: {token}")
         send_forgot_password_email.delay(email, token)
         cache.set(limit_key, count + 1, timeout=90)
@@ -264,6 +265,16 @@ class ResetPasswordView(APIView):
         return Response(
             {"message": "Password reset successfully."}, status=status.HTTP_200_OK
         )
+
+class VerifyResetTokenView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        serializer = TokenVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"message": "Token is valid."}, status=status.HTTP_200_OK
+        )
+
 
 
 class GoogleAuthView(APIView):
