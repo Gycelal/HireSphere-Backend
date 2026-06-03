@@ -110,7 +110,7 @@ class ProfilePictureSerializer(serializers.Serializer):
 
     def validate_profile_picture(self, image):
         
-        if image.content_type not in ['image/jpeg', 'image/png']:
+        if image.content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
             raise serializers.ValidationError("Only JPEG and PNG images are allowed.")
         if image.size > 2 * 1024 * 1024:  # 2MB limit
             raise serializers.ValidationError("Profile picture must be less than 2MB.")

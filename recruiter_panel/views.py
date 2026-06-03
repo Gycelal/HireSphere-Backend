@@ -1,10 +1,8 @@
-import profile
-
 from rest_framework.generics import RetrieveUpdateAPIView
 from urllib3 import request
 from accounts.permissions import IsRecruiter
 from .serializers import  RecruiterProfileSerializer, ProfilePictureSerializer
-import cloudinary
+import cloudinary.uploader
 import logging
 from rest_framework.views import APIView
 from .models import RecruiterProfile
@@ -65,17 +63,45 @@ class RecruiterProfilePhotoUpdateView(APIView):
         except Exception as e:
             logger.error(f"Failed to save profile picture: {e}")
             return Response(
-                {"detail": "Failed to save profile picture."},
+                {"detail": "Failed to save picture."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
         # delete old picture from cloudinary if exists
         if old_public_id:
             try:
-                cloudinary.uploader.destroy(old_public_id)
+                cloudinary.uploader.destroy(old_public_id, invalidate=True)
             except Exception as e:
                 logger.error(f"Failed to delete old profile picture: {e}")
         return Response({"profile_picture": img_url}, status=status.HTTP_200_OK)
     
     def delete(self, request):
-        pass
+        # get profile
+        try:
+            profile = RecruiterProfile.objects.get(user=request.user)
+        except RecruiterProfile.DoesNotExist:
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # store old public id before clearing picture fields
+        old_public_id = profile.profile_picture_public_id
+
+        # save profile with picture fields cleared
+        profile.profile_picture = None
+        profile.profile_picture_public_id = None 
+        try:
+            profile.save()
+        except Exception as e:
+            logger.error(f"Failed to remove profile picture: {e}")
+            return Response(
+                {"detail": "Failed to remove picture."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # remove image from cloudinary if exists
+        try:
+            if old_public_id:
+                cloudinary.uploader.destroy(old_public_id, invalidate=True)
+        except Exception as e:
+            logger.error(f"Failed to delete old profile picture: {e}")
+
+        return Response({"detail": "Picture removed."}, status=status.HTTP_200_OK)
