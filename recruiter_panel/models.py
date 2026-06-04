@@ -5,34 +5,24 @@ from django.conf import settings
 
 
 class RecruiterProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recruiters")
+
+    RECRUITER_TYPES = [
+        ('company', 'Company'),
+        ('individual', 'Individual'),
+        ('agency', 'Agency'),
+    ]
+    
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recruiterprofile")
     display_name = models.CharField(max_length=255, blank=True)
-    profile_picture = models.URLField(blank=True)
-    recruiter_type = models.CharField(max_length=255, blank=True)
+    profile_picture = models.URLField(null=True, blank=True)
+    profile_picture_public_id = models.CharField(max_length=255,null=True, blank=True)
+    recruiter_type = models.CharField(max_length=255, blank=True, choices=RECRUITER_TYPES)
     company_or_brand_name = models.CharField(max_length=255, blank=True)
-    website_url = models.URLField(blank=True)
-    # subscription_plan = models.ForeignKey(on_delete=models.SET_NULL, null=True, blank=True, related_name="recruiters")
+    website_url = models.URLField(null=True, blank=True)
+    # subscription_plan = models.ForeignKey(on_delete=models.SET_NULL, null=True, blank=True, related_name="recruiterprofile")
     location = models.CharField(max_length=255, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def profile_completion(self):
-        user = self.user
-        fields = [
-            user.first_name,
-            user.last_name,
-            user.email,
-            self.display_name,
-            self.profile_picture,
-            self.recruiter_type,
-            self.company_or_brand_name,
-            self.website_url,
-            self.location
-        ]
-        completed = sum(1 for field in fields if field)
-        total = len(completed)
-        return int((completed/total) * 100) if total > 0 else 0
-
     def __str__(self):
         return self.display_name

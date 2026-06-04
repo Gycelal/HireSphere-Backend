@@ -3,6 +3,9 @@ from .models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  
 from .utils import validate_password
 from django.core.cache import cache
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -112,6 +115,14 @@ class ResetPasswordSerializer(serializers.Serializer):
         token = self.validated_data['token']
         cache.delete(f"forgot_password_token:{token}")
 
+class TokenVerifySerializer(serializers.Serializer):
+    token = serializers.CharField(required=True)
+    def validate_token(self, token):
+        user_id = cache.get(f"forgot_password_token:{token}")
+        if not user_id:
+            raise serializers.ValidationError("Invalid or expired token.")
+        return token
+
 class GoogleAuthSerializer(serializers.Serializer):
     id_token = serializers.CharField()
     
@@ -125,6 +136,7 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "role",
+            "approval_status",
         ]
 
 class SetRoleSerializer(serializers.ModelSerializer):
