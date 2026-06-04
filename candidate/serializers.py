@@ -15,6 +15,20 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Candidate
         fields = CANDIDATE_PROFILE_FIELDS
+    
+    def validate_headline(self, value):
+        value = value.strip()
+        if value == "":
+            return value
+        if value.isdigit():
+            raise serializers.ValidationError(
+                "Headline cannot contain only numbers."
+            )
+        return value
+    def validate_qualification(self, value):
+        pass
+    
+
 
 
 class CandidateSerializer(serializers.ModelSerializer):
