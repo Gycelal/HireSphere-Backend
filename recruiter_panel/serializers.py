@@ -95,9 +95,11 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
 
     def update(self, user, validated_data):
         profile_data = validated_data.pop("recruiterprofile", None)
+        # save user model data
         for attr, value in validated_data.items():
             setattr(user, attr, value)
         user.save()
+        # save RecruiterProfile model data
         if profile_data:
             profile, created = RecruiterProfile.objects.get_or_create(user=user)
             for attr, value in profile_data.items():
@@ -105,16 +107,7 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
             profile.save()
         return user
 
-class ProfilePictureSerializer(serializers.Serializer):
-    profile_picture = serializers.ImageField()
 
-    def validate_profile_picture(self, image):
-        
-        if image.content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
-            raise serializers.ValidationError("Only JPEG and PNG images are allowed.")
-        if image.size > 2 * 1024 * 1024:  # 2MB limit
-            raise serializers.ValidationError("Profile picture must be less than 2MB.")
-        return image
 
 
 

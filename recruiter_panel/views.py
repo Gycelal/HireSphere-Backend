@@ -1,7 +1,8 @@
 from rest_framework.generics import RetrieveUpdateAPIView
 from urllib3 import request
 from accounts.permissions import IsRecruiter
-from .serializers import  RecruiterProfileSerializer, ProfilePictureSerializer
+from .serializers import  RecruiterProfileSerializer
+from core.serializers import ProfilePictureSerializer
 import cloudinary.uploader
 import logging
 from rest_framework.views import APIView
@@ -13,6 +14,9 @@ from rest_framework import status
 logger = logging.getLogger(__name__)
 
 class RecruiterProfileView(RetrieveUpdateAPIView):
+    """
+    Handle Updation of Profile and retrieval of profile data for recruiter
+    """
     permission_classes = [IsRecruiter]
     serializer_class = RecruiterProfileSerializer
 
@@ -20,8 +24,11 @@ class RecruiterProfileView(RetrieveUpdateAPIView):
         return self.request.user
 
 
-
+    
 class RecruiterProfilePhotoUpdateView(APIView):
+    """
+    Handle updating and deleting recruiter profile picture
+    """
     permission_classes = [IsRecruiter]
     serializer_class = ProfilePictureSerializer
     
