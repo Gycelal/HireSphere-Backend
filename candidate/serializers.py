@@ -7,8 +7,8 @@ CANDIDATE_PROFILE_FIELDS = [
     "qualification",
     "professional_skills",
     "experience_years",
-    "profile_picture",
-    "resume"
+    "profile_picture_public_id",
+    "resume_public_id"
 ]
 
 class CandidateProfileSerializer(serializers.ModelSerializer):
@@ -26,7 +26,36 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
             )
         return value
     def validate_qualification(self, value):
-        pass
+        value = value.strip()
+        if value == "":
+            return value
+        if value.isdigit():
+            raise serializers.ValidationError(
+                "Qualification cannot contain only numbers."
+            )
+        return value
+    def validate_professional_skills(self, skills):
+        cleaned_skills = []
+
+        if len(skills) > 10:
+            raise serializers.ValidationError(
+                "You can add up to 10 skills only."
+    )
+
+        for skill in skills:
+            skill = skill.strip()
+
+            if not skill:
+                continue
+
+            if skill.isdigit():
+                raise serializers.ValidationError(
+                    "Skills cannot contain only numbers."
+                )
+
+            cleaned_skills.append(skill)
+
+        return cleaned_skills
     
 
 
@@ -37,7 +66,7 @@ class CandidateSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(read_only=True)
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "profile"]
+        fields = ["first_name", "last_name", "email", "profile", "completion_percentage"]
     
     def get_completion_percentage(self, user):
         profile = getattr(user, "candidate", None)
