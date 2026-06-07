@@ -7,11 +7,15 @@ CANDIDATE_PROFILE_FIELDS = [
     "qualification",
     "professional_skills",
     "experience_years",
+    "profile_picture",
     "profile_picture_public_id",
     "resume_public_id"
 ]
 
 class CandidateProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for CandidateProfile model with validation for profile fields.
+    """
     class Meta:
         model = Candidate
         fields = CANDIDATE_PROFILE_FIELDS
@@ -61,6 +65,10 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
 
 
 class CandidateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for User model that includes nested CandidateProfileSerializer
+    and calculates profile completion percentage.
+    """
     profile = CandidateProfileSerializer(source='candidate', required=False)
     completion_percentage = serializers.SerializerMethodField()
     email = serializers.EmailField(read_only=True)

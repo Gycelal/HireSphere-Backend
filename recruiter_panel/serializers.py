@@ -12,7 +12,9 @@ RECRUITER_PROFILE_FIELDS = [
     "location",
 ]
 class RecruiterSerializer(serializers.ModelSerializer):
-    
+    """
+    Serializer for RecruiterProfile model with validation for profile fields.
+    """
     class Meta:
         model = RecruiterProfile
         fields = RECRUITER_PROFILE_FIELDS
@@ -67,6 +69,10 @@ class RecruiterSerializer(serializers.ModelSerializer):
         return value
 
 class RecruiterProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for User model that includes nested RecruiterSerializer
+    and calculates profile completion percentage.
+    """
     profile = RecruiterSerializer(source="recruiterprofile", required=False)
     completion_percentage = serializers.SerializerMethodField()
     email  = serializers.EmailField(read_only=True)
