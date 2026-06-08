@@ -111,6 +111,12 @@ class CandidateSerializer(serializers.ModelSerializer):
         return user     
     
 
+class ResumeUploadSerializer(serializers.ModelSerializer):
+    # Serializer for handling candidate resume upload with validation for resume public id.
+    class Meta:
+        model = Candidate
+        fields = ["resume_public_id"]
+
 
     
     

@@ -15,7 +15,7 @@ class Candidate(models.Model):
     experience_years = models.PositiveIntegerField(default=0,validators=[MaxValueValidator(50)], blank=True)
     profile_picture = models.URLField(blank=True, null=True)
     profile_picture_public_id = models.CharField(max_length=255, blank=True, null=True)
-    resume_public_id = models.CharField(max_length=255, blank=True)
+    resume_public_id = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
