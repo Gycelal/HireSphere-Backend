@@ -36,7 +36,7 @@ class CandidateProfilePhotoView(APIView):
 
         # upload new picture to cloudinary
         try:
-            upload_res = cloudinary.uploader.upload(image)
+            upload_res = cloudinary.uploader.upload(image, folder='profile_pictures')
         except Exception as e:
             logger.error(f"Failed to upload new profile picture: {e}")
             return Response(
@@ -102,3 +102,10 @@ class CandidateProfilePhotoView(APIView):
         except Exception as e:
             logger.error(f"Failed to delete profile picture from cloudinary: {e}")
         return Response({"detail": "Profile picture removed."}, status=status.HTTP_200_OK)
+
+class CandidateResumeUploadView(APIView):
+    """
+    Handle updating and deleting candidate resume
+    """
+    permission_classes = [IsCandidate]
+    pass
