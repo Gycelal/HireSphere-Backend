@@ -17,6 +17,7 @@ class Candidate(models.Model):
     profile_picture_public_id = models.CharField(max_length=255, blank=True, null=True)
     resume_url = models.URLField(blank=True, null=True)
     resume_public_id = models.CharField(max_length=255, null=True, blank=True)
+    resume_filename = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

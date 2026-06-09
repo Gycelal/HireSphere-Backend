@@ -113,6 +113,7 @@ class CandidateResumeUploadView(APIView):
         serializer.is_valid(raise_exception=True)
         resume_public_id = serializer.validated_data['resume_public_id']
         resume_url = serializer.validated_data['resume_url']
+        resume_filename = serializer.validated_data['resume_filename']
 
         # get the candidate profile if already exists or create a new one
         try:
@@ -128,6 +129,7 @@ class CandidateResumeUploadView(APIView):
         old_resume_id = profile.resume_public_id
         profile.resume_public_id = resume_public_id
         profile.resume_url = resume_url
+        profile.resume_filename = resume_filename
 
         # update the profile with new resume public id
         try:
@@ -159,6 +161,7 @@ class CandidateResumeUploadView(APIView):
         # clear resume public id from profile
         profile.resume_public_id = None
         profile.resume_url = None
+        profile.resume_filename = None
         try:
             profile.save()
         except Exception as e:
