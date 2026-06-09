@@ -102,6 +102,7 @@ INSTALLED_APPS = [
     'platform_admin',
     'candidate',
     'django.contrib.postgres',
+    'jobs',
 ]
 
 MIDDLEWARE = [

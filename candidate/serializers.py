@@ -74,10 +74,12 @@ class CandidateSerializer(serializers.ModelSerializer):
     profile = CandidateProfileSerializer(source='candidate', required=False)
     completion_percentage = serializers.SerializerMethodField()
     email = serializers.EmailField(read_only=True)
+    
     class Meta:
         model = User
         fields = ["first_name", "last_name", "email", "profile", "completion_percentage"]
     
+
     def get_completion_percentage(self, user):
         profile = getattr(user, "candidate", None)
         fields = [

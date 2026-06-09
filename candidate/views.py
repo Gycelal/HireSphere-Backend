@@ -148,6 +148,7 @@ class CandidateResumeUploadView(APIView):
                 logger.error(f"Failed to delete old resume from cloudinary: {e}")
         return Response({"resume_public_id": resume_public_id}, status=status.HTTP_200_OK)
 
+
     def delete(self, request):
         # get profile
         try:

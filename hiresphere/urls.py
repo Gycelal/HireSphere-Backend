@@ -23,5 +23,6 @@ urlpatterns = [
     path('api/admin/', include('platform_admin.urls')),
     path('api/recruiter/', include('recruiter.urls')),
     path('api/candidate/', include('candidate.urls')),
+    path('api/jobs/', include('jobs.urls')),
 ]
     
