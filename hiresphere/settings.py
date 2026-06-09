@@ -98,7 +98,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'rest_framework_simplejwt.token_blacklist',
-    'recruiter_panel',
+    'recruiter',
     'platform_admin',
     'candidate',
     'django.contrib.postgres',
