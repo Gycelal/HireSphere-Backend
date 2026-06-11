@@ -12,4 +12,6 @@ class IsApprovedRecruiter(BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.role == 'recruiter' and request.user.approval_status == 'approved'
     
-    
+class HasRecruiterProfile(BasePermission):
+    def has_permission(self, request, view):
+        return hasattr(request.user, "recruiterprofile")
