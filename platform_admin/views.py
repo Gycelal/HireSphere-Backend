@@ -4,8 +4,10 @@ from rest_framework.viewsets import ModelViewSet
 from accounts.models import User
 from rest_framework import status
 from rest_framework.response import Response
-from .serializers import AdminRecruiterListSerializer, AdminRecruiterApprovalSerializer
+from .serializers import AdminRecruiterListSerializer, AdminRecruiterApprovalSerializer, UserManagementDetailSerializer, UserManagementListSerializer, UserStatusSerializer
 from rest_framework.decorators import action
+from accounts.models import User
+from rest_framework.filters import SearchFilter, OrderingFilter
 import logging
 # Create your views here.
 
@@ -22,7 +24,7 @@ class AdminRecruiterViewSet(ModelViewSet):
     ordering_fields = ["date_joined", "first_name"]
 
     def get_queryset(self):
-        recruiters = User.objects.filter(role="recruiter").order_by("-date_joined")
+        recruiters = User.objects.filter(role="recruiter", recruiterprofile__isnull=False).order_by("-date_joined")
         status_param = self.request.query_params.get("status")
         search_param = self.request.query_params.get("search")
 
@@ -62,3 +64,39 @@ class AdminRecruiterViewSet(ModelViewSet):
         recruiter.save()
         return Response({"message": f"Recruiter {action_value} successfully."}, status=status.HTTP_200_OK)
        
+
+
+class UserManagementViewSet(ModelViewSet):
+    
+    permission_classes = [IsAdminUser]
+
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["first_name", "last_name", "email"]
+    ordering_fields = ["date_joined", "first_name"]
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return UserManagementDetailSerializer
+        elif self.action in ["update", "partial_update"]:
+            return UserStatusSerializer
+
+        return UserManagementListSerializer
+
+
+    def get_queryset(self):
+        role = self.request.query_params.get("role")
+        status_param = self.request.query_params.get("status")
+
+        users = User.objects.all().order_by("-date_joined")
+        if role == "recruiter":
+            users = users.filter(role=role, recruiterprofile__isnull=False, approval_status="approved")
+        elif role == "candidate":
+            users = users.filter(role=role, candidate__isnull=False)
+        
+        if status_param == "active":
+            users = users.filter(is_active=True)
+        elif status_param == "suspended":
+            users = users.filter(is_active=False)
+        
+        return users
+    
