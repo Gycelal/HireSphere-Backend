@@ -79,7 +79,7 @@ class UserManagementViewSet(ModelViewSet):
             return UserManagementDetailSerializer
         elif self.action in ["update", "partial_update"]:
             return UserStatusSerializer
-
+        
         return UserManagementListSerializer
 
 
@@ -97,6 +97,5 @@ class UserManagementViewSet(ModelViewSet):
             users = users.filter(is_active=True)
         elif status_param == "suspended":
             users = users.filter(is_active=False)
-        
         return users
     
