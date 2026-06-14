@@ -8,7 +8,7 @@ from django.core.validators import MaxValueValidator
 
 
 class Candidate(models.Model):
-    user= models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='candidate')
     headline = models.CharField(max_length=255, blank=True)
     qualification = models.CharField(max_length=255, blank=True)
     professional_skills = ArrayField(models.CharField(max_length=100, blank=True), blank=True, default=list)
