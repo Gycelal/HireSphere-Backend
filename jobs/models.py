@@ -11,6 +11,7 @@ class Job(models.Model):
         ("part_time", "Part Time"),
         ("contract", "Contract"),
         ("internship", "Internship"),
+        ("freelance", "Freelance"),
     ]
 
     WORK_MODES = [
