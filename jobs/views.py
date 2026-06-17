@@ -32,12 +32,20 @@ class JobViewSet(viewsets.ModelViewSet):
 
         user = self.request.user
         logger.info(f"User {user.username} is accessing job listings.")
+        status_params = self.request.query_params.get("status")
+
+        jobs = Job.objects.all()
 
         if user.role == "recruiter":
             logger.info(f"Recruiter {user.username} is accessing their job listings.")
-            return Job.objects.filter(recruiter=user.recruiterprofile)
+            jobs = jobs.filter(recruiter=user.recruiterprofile)
         
-        return Job.objects.filter(is_active=True)
+        if status_params and status_params == "true":
+            jobs = jobs.filter(is_active="True")
+        elif status_params == "false":
+            jobs = jobs.filter(is_active="False")
+        
+        return jobs
         
     
     def perform_create(self, serializer):
