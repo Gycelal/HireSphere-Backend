@@ -5,6 +5,7 @@ from .serializers import JobSerializer
 from .models import Job
 import logging
 from rest_framework.exceptions import  PermissionDenied
+from rest_framework.filters import SearchFilter, OrderingFilter
 # Create your views here.
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,10 @@ logger = logging.getLogger(__name__)
 class JobViewSet(viewsets.ModelViewSet):
     queryset = Job.objects.all()
     serializer_class = JobSerializer
+
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["title", "employment_type", "location"]
+    ordering_fields = ["created_at", "title"]
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

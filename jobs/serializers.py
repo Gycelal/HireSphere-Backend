@@ -9,6 +9,7 @@ class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = [
+            "id",
             "title",
             "description",
             "location",
@@ -20,6 +21,7 @@ class JobSerializer(serializers.ModelSerializer):
             "vacancies",
             "experience_required",
             "is_active",
+            "created_at",
         ]
     
     def validate_title(self, value):
