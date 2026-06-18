@@ -32,6 +32,8 @@ class Job(models.Model):
     application_deadline = models.DateField()
     vacancies = models.PositiveIntegerField()
     experience_required = models.PositiveIntegerField(default=0,help_text="Years of experience required",)
+    salary_min = models.PositiveIntegerField(null=True, blank=True)
+    salary_max = models.PositiveIntegerField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
