@@ -2,6 +2,9 @@ from rest_framework import serializers
 from .models import Job
 from django.utils import timezone
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class JobSerializer(serializers.ModelSerializer):
 
@@ -65,6 +68,7 @@ class JobSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Minimum salary should be greater than zero."
             )
+        return value
 
     def validate_salary_max(self, value):
 
@@ -72,6 +76,7 @@ class JobSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Maximum salary should be greater than zero."
             )
+        return value
 
     def validate_skills_required(self, value):
         if not value:
