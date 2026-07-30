@@ -6,6 +6,7 @@ from .models import Job
 import logging
 from rest_framework.exceptions import  PermissionDenied
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.permissions import AllowAny
 # Create your views here.
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class JobViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             permission_classes = [IsRecruiter, IsApprovedRecruiter, HasRecruiterProfile]
         else:
-            permission_classes = []
+            permission_classes = [AllowAny]
 
         return [permission() for permission in permission_classes]
 
@@ -31,13 +32,15 @@ class JobViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
 
         user = self.request.user
-        logger.info(f"User {user.username} is accessing job listings.")
+        logger.info(f"User {user} is accessing job listings.")
         status_params = self.request.query_params.get("status")
 
         jobs = Job.objects.all()
 
-        if user.role == "recruiter":
-            logger.info(f"Recruiter {user.username} is accessing their job listings.")
+        role = getattr(user, "role", None)
+
+        if role == "recruiter":
+            logger.info(f"Recruiter {user} is accessing their job listings.")
             jobs = jobs.filter(recruiter=user.recruiterprofile)
         
         if status_params and status_params == "true":
