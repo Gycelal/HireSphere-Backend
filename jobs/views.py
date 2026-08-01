@@ -4,9 +4,12 @@ from accounts.permissions import IsRecruiter, IsApprovedRecruiter, HasRecruiterP
 from .serializers import JobSerializer
 from .models import Job
 import logging
-from rest_framework.exceptions import  PermissionDenied
+from rest_framework.exceptions import PermissionDenied
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import AllowAny
+from .filters import JobFilter
+
 # Create your views here.
 
 logger = logging.getLogger(__name__)
@@ -15,10 +18,12 @@ logger = logging.getLogger(__name__)
 class JobViewSet(viewsets.ModelViewSet):
     queryset = Job.objects.all()
     serializer_class = JobSerializer
+    filterset_class = JobFilter
 
-    filter_backends = [SearchFilter, OrderingFilter]
-    search_fields = ["title", "employment_type", "location"]
+    filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
+    search_fields = ["title", "skills_required"]
     ordering_fields = ["created_at", "title"]
+    ordering = ["-created_at"]
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -32,7 +37,6 @@ class JobViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
 
         user = self.request.user
-        logger.info(f"User {user} is accessing job listings.")
         status_params = self.request.query_params.get("status")
 
         jobs = Job.objects.all()
@@ -40,39 +44,32 @@ class JobViewSet(viewsets.ModelViewSet):
         role = getattr(user, "role", None)
 
         if role == "recruiter":
-            logger.info(f"Recruiter {user} is accessing their job listings.")
             jobs = jobs.filter(recruiter=user.recruiterprofile)
-        
+
         if status_params and status_params == "true":
             jobs = jobs.filter(is_active="True")
         elif status_params == "false":
             jobs = jobs.filter(is_active="False")
-        
+
         return jobs
-        
-    
+
     def perform_create(self, serializer):
-        
+
         serializer.save(recruiter=self.request.user.recruiterprofile)
-    
-    
+
     def perform_update(self, serializer):
 
         job = self.get_object()
 
         if job.recruiter != self.request.user.recruiterprofile:
             raise PermissionDenied("You do not have permission to update this job.")
-        
-        serializer.save()
 
+        serializer.save()
 
     def perform_destroy(self, job):
 
         if job.recruiter != self.request.user.recruiterprofile:
             raise PermissionDenied("You do not have permission to delete this job.")
-        
-        job.is_active = False
-        logger.info(f"Job {job.title} (ID: {job.id}) has been marked as inactive by recruiter {self.request.user.username}.")
-        job.save()
-    
 
+        job.is_active = False
+        job.save()

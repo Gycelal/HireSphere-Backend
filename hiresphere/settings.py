@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     'django.contrib.postgres',
     'jobs',
     'applications',
+    'django_filters',
 ]
 
 MIDDLEWARE = [
