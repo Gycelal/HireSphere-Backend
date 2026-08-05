@@ -22,9 +22,9 @@ class JobViewSet(viewsets.ModelViewSet):
 
     filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
     search_fields = ["title", "skills_required"]
-    ordering_fields = ["created_at", "title"]
+    ordering_fields = ["created_at", "title", "application_deadline"]
     ordering = ["-created_at"]
-
+    
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             permission_classes = [IsRecruiter, IsApprovedRecruiter, HasRecruiterProfile]
