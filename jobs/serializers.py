@@ -1,12 +1,30 @@
 from rest_framework import serializers
 from .models import Job
+from recruiter.models import RecruiterProfile
 from django.utils import timezone
 
 import logging
 
 logger = logging.getLogger(__name__)
 
+
+class JobRecruiterSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source="user.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
+
+    class Meta:
+        model = RecruiterProfile
+        fields = [
+            "id",
+            "display_name",
+            "profile_picture",
+            "company_or_brand_name",
+            "first_name",
+            "last_name"
+        ]
+
 class JobSerializer(serializers.ModelSerializer):
+    recruiter = JobRecruiterSerializer(read_only=True)
 
     class Meta:
         model = Job
@@ -26,6 +44,7 @@ class JobSerializer(serializers.ModelSerializer):
             "salary_max",
             "is_active",
             "created_at",
+            "recruiter"
         ]
 
     def validate_title(self, value):
