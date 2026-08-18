@@ -31,6 +31,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from django.conf import settings
 import logging
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
@@ -362,3 +363,9 @@ class SetRoleView(APIView):
             status=status.HTTP_200_OK
         )
 
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
