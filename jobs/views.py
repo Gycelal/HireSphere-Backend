@@ -9,6 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import AllowAny
 from .filters import JobFilter
+from django.utils import timezone
 
 # Create your views here.
 
@@ -46,10 +47,16 @@ class JobViewSet(viewsets.ModelViewSet):
         if role == "recruiter":
             jobs = jobs.filter(recruiter=user.recruiterprofile)
 
-        if status_params and status_params == "true":
-            jobs = jobs.filter(is_active="True")
-        elif status_params == "false":
-            jobs = jobs.filter(is_active="False")
+            if status_params == "true":
+                jobs = jobs.filter(is_active=True)
+            elif status_params == "false":
+                jobs = jobs.filter(is_active=False)
+
+        elif role == "candidate":
+            jobs = jobs.filter(
+                is_active=True,
+                application_deadline__gte=timezone.localdate()
+            )
 
         return jobs
 
@@ -69,7 +76,7 @@ class JobViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, job):
 
         if job.recruiter != self.request.user.recruiterprofile:
-            raise PermissionDenied("You do not have permission to delete this job.")
+            raise PermissionDenied("You do not have permission to close this job.")
 
         job.is_active = False
         job.save()
