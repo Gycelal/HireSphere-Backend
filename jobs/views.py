@@ -4,7 +4,7 @@ from accounts.permissions import IsRecruiter, IsApprovedRecruiter, HasRecruiterP
 from .serializers import JobSerializer
 from .models import Job
 import logging
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import AllowAny
@@ -65,16 +65,22 @@ class JobViewSet(viewsets.ModelViewSet):
         serializer.save(recruiter=self.request.user.recruiterprofile)
 
     def perform_update(self, serializer):
-
         job = self.get_object()
 
         if job.recruiter != self.request.user.recruiterprofile:
             raise PermissionDenied("You do not have permission to update this job.")
 
+        new_is_active = serializer.validated_data.get("is_active", job.is_active)
+
+        if not job.is_active and new_is_active:
+            if job.application_deadline < timezone.localdate():
+                raise ValidationError({
+                            "message": "Application deadline has passed. Extend the deadline before reopening this job."
+                        })
+
         serializer.save()
 
     def perform_destroy(self, job):
-
         if job.recruiter != self.request.user.recruiterprofile:
             raise PermissionDenied("You do not have permission to close this job.")
 
