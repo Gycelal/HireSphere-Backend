@@ -306,6 +306,11 @@ class GoogleAuthView(APIView):
                     "is_verified": True,
                 },
             )
+            if not created and not user.is_active:
+                return Response(
+                    {"success": False, "message": "Your account has been suspended."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             # Generate JWT tokens
             refresh = RefreshToken.for_user(user)
