@@ -94,7 +94,8 @@ class UserManagementDetailSerializer(serializers.ModelSerializer):
             "role",
             "is_active",
             "date_joined",
-            "profile"
+            "profile",
+            "approval_status"
         ]
 
 class UserStatusSerializer(serializers.ModelSerializer):

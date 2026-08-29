@@ -306,6 +306,7 @@ class GoogleAuthView(APIView):
                     "is_verified": True,
                 },
             )
+            
             if not created and not user.is_active:
                 return Response(
                     {"success": False, "message": "Your account has been suspended."},
