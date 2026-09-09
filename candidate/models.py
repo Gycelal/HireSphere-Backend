@@ -15,11 +15,26 @@ class Candidate(models.Model):
     experience_years = models.PositiveIntegerField(default=0,validators=[MaxValueValidator(50)], blank=True)
     profile_picture = models.URLField(blank=True, null=True)
     profile_picture_public_id = models.CharField(max_length=255, blank=True, null=True)
-    resume_url = models.URLField(blank=True, null=True)
-    resume_public_id = models.CharField(max_length=255, null=True, blank=True)
-    resume_filename = models.CharField(max_length=255, null=True, blank=True)
+    default_resume = models.OneToOneField("Resume", on_delete=models.SET_NULL, null=True, blank=True, related_name="default_candidate")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return self.user.first_name + " " + self.user.last_name
+
+
+class Resume(models.Model):
+    candidate = models.ForeignKey(
+        Candidate,
+        on_delete=models.CASCADE,
+        related_name="resumes"
+    )
+
+    file_url = models.URLField()
+    public_id = models.CharField(max_length=255)
+    file_name = models.CharField(max_length=255)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.candidate.user.email} - {self.file_name}"

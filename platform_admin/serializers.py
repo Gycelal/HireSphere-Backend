@@ -76,7 +76,7 @@ class UserManagementDetailSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()
 
     def get_profile(self, obj):
-        logger.info("role in get profile:",obj.role)
+        
         if obj.role == "candidate":
             return CandidateProfileSerializer(obj.candidate).data
         if obj.role == "recruiter":

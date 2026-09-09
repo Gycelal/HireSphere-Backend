@@ -1,4 +1,5 @@
 from django.db import models
+from candidate.models import Resume
 
 # Create your models here.
 
@@ -13,9 +14,9 @@ class Application(models.Model):
     ("hired", "Hired"),
 ]
     
-    candidate = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="applications")
+    candidate = models.ForeignKey("candidate.Candidate", on_delete=models.CASCADE, related_name="applications")
     job = models.ForeignKey("jobs.Job", on_delete=models.CASCADE, related_name="applications")
-    resume_url = models.URLField()
+    resume = models.ForeignKey(Resume, on_delete=models.PROTECT, related_name="applications")
     cover_letter = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="applied")
     applied_at = models.DateTimeField(auto_now_add=True)

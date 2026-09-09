@@ -1,12 +1,16 @@
 from rest_framework.generics import RetrieveUpdateAPIView
-from .serializers import CandidateSerializer, ResumeUploadSerializer
+from .serializers import CandidateSerializer, ResumeSerializer, ResumeUploadSerializer
 from accounts.permissions import IsCandidate
 from core.serializers import ProfilePictureSerializer
 from rest_framework.views import APIView, Response
 import cloudinary.uploader
 from rest_framework import status
 import logging
-from .models import Candidate
+from .models import Candidate, Resume
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.mixins import ListModelMixin, CreateModelMixin 
+from rest_framework.decorators import action
+from django.db.models import Max
 
 logger = logging.getLogger(__name__)
 
@@ -102,80 +106,91 @@ class CandidateProfilePhotoView(APIView):
             logger.error(f"Failed to delete profile picture from cloudinary: {e}")
         return Response({"detail": "Profile picture removed."}, status=status.HTTP_200_OK)
 
-class CandidateResumeUploadView(APIView):
+class CandidateProfileResumeUploadView(APIView):
     """
-    Handle updating and deleting candidate resume
+    Handle uploading or changing candidate default resume
     """
     permission_classes = [IsCandidate]
     
     def patch(self, request):
         serializer = ResumeUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        resume_public_id = serializer.validated_data['resume_public_id']
-        resume_url = serializer.validated_data['resume_url']
-        resume_filename = serializer.validated_data['resume_filename']
 
-        # get the candidate profile if already exists or create a new one
-        try:
-            profile, created = Candidate.objects.get_or_create(user=request.user)
-        except Exception as e:
-            logger.error(f"Failed to get/create profile: {e}")
-            return Response(
-                {"detail": "Failed to process profile."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        candidate, created = Candidate.objects.get_or_create(user=request.user)
+
+        resume = Resume.objects.create(
+            candidate=candidate,
+            file_url=serializer.validated_data['file_url'],
+            public_id=serializer.validated_data['public_id'],
+            file_name=serializer.validated_data['file_name']
+        )
+
+        candidate.default_resume = resume
+        candidate.save(update_fields=['default_resume'])
         
-        # store old resume public id before updating
-        old_resume_id = profile.resume_public_id
-        profile.resume_public_id = resume_public_id
-        profile.resume_url = resume_url
-        profile.resume_filename = resume_filename
 
-        # update the profile with new resume public id
-        try:
-            profile.save()
-        except Exception as e:
-            logger.error(f"Failed to save profile with new resume: {e}")
-            return Response(
-                {"detail": "Failed to save profile."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        # delete old resume from cloudinary if exists and its different from the new one
-        if old_resume_id and old_resume_id != resume_public_id:
-            try:
-                cloudinary.uploader.destroy(old_resume_id, resource_type="raw", invalidate=True)
-            except Exception as e:
-                logger.error(f"Failed to delete old resume from cloudinary: {e}")
-        return Response({"resume_public_id": resume_public_id}, status=status.HTTP_200_OK)
+        return Response({
+            "resume":{
+                "id": resume.id,
+                "file_url": resume.file_url,
+                "public_id": resume.public_id,
+                "file_name": resume.file_name,
+            }
+        }, status=status.HTTP_200_OK)
 
 
     def delete(self, request):
-        # get profile
+
         try:
-            profile = Candidate.objects.get(user=request.user)
+            candidate = Candidate.objects.get(user=request.user)
         except Candidate.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Profile not found."},status=status.HTTP_404_NOT_FOUND)
 
-        # store old resume public id before clearing
-        old_resume_id = profile.resume_public_id
+        if not candidate.default_resume:
+            return Response({"detail": "No resume to remove."}, status=status.HTTP_404_NOT_FOUND)
 
-        # clear resume public id from profile
-        profile.resume_public_id = None
-        profile.resume_url = None
-        profile.resume_filename = None
+        candidate.default_resume = None
+
         try:
-            profile.save()
+            candidate.save(update_fields=['default_resume'])
         except Exception as e:
             logger.error(f"Failed to remove resume: {e}")
             return Response(
                 {"detail": "Failed to remove resume."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+        return Response({"detail": "Resume Removed."}, status=status.HTTP_200_OK)
+
+class ResumeViewSet(ListModelMixin, CreateModelMixin, GenericViewSet):
+
+    permission_classes = [IsCandidate]
+    serializer_class = ResumeSerializer
+    pagination_class = None  
+
+    def get_queryset(self):
+        return Resume.objects.filter(candidate__user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        candidate, created = Candidate.objects.get_or_create(user=self.request.user)
+        serializer.save(candidate=candidate)
         
-        # remove resume from cloudinary if exists
-        if old_resume_id:
-            try:
-                cloudinary.uploader.destroy(old_resume_id, resource_type="raw", invalidate=True)
-            except Exception as e:
-                logger.error(f"Failed to delete resume from cloudinary: {e}")
-        return Response({"detail": "Resume removed."}, status=status.HTTP_200_OK)
+    @action(detail=False, methods=["get"], url_path="recent")
+    def recent(self, request):
+        logger.info(f"Fetching recent resumes for user: {request.user.email}")
+        print("in recent resumes view")
+
+        candidate = request.user.candidate
+
+        resumes = Resume.objects.filter(
+            candidate=candidate,
+            applications__candidate=candidate
+            ).annotate(
+                last_used=Max("applications__applied_at")
+            ).distinct().order_by("-last_used")[:3]
+
+        serializer = self.get_serializer(resumes, many=True)
+        logger.info(f"Recent resumes data: {serializer.data}")  # Logging the serialized data
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+

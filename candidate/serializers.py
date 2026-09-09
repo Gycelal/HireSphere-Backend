@@ -1,4 +1,4 @@
-from .models import Candidate
+from .models import Candidate, Resume
 from rest_framework import serializers
 from accounts.models import User
 
@@ -9,15 +9,26 @@ CANDIDATE_PROFILE_FIELDS = [
     "experience_years",
     "profile_picture",
     "profile_picture_public_id",
-    "resume_url",
-    "resume_public_id",
-    "resume_filename"
+    "default_resume",
 ]
+
+class ResumeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Resume
+        fields = [
+            "id",
+            "file_url",
+            "public_id",
+            "file_name",
+            "created_at",
+        ]
 
 class CandidateProfileSerializer(serializers.ModelSerializer):
     """
     Serializer for CandidateProfile model with validation for profile fields.
     """
+
+    default_resume = ResumeSerializer(read_only=True)
     class Meta:
         model = Candidate
         fields = CANDIDATE_PROFILE_FIELDS
@@ -112,14 +123,16 @@ class CandidateSerializer(serializers.ModelSerializer):
             for attr, value in profile_data.items():
                 setattr(profile, attr, value)
             profile.save()     
-        return user     
+        return user
+     
     
 
 class ResumeUploadSerializer(serializers.ModelSerializer):
-    # Serializer for handling candidate resume upload with validation for resume public id.
     class Meta:
-        model = Candidate
-        fields = ["resume_public_id", "resume_url", "resume_filename"]
+        model = Resume
+        fields = ["public_id", "file_url", "file_name"]
+
+
 
 
     

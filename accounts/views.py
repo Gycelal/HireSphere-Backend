@@ -317,6 +317,7 @@ class GoogleAuthView(APIView):
             refresh = RefreshToken.for_user(user)
             access = str(refresh.access_token)
 
+            print("access token:", access)
             # Serialize user
             user_data = UserSerializer(user).data
 
