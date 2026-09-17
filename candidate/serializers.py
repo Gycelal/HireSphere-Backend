@@ -1,6 +1,7 @@
 from .models import Candidate, Resume
 from rest_framework import serializers
 from accounts.models import User
+from jobs.models import Job
 
 CANDIDATE_PROFILE_FIELDS = [
     "headline",
@@ -135,5 +136,31 @@ class ResumeUploadSerializer(serializers.ModelSerializer):
 
 
 
+class JobAIPromptSerializer(serializers.ModelSerializer):
+    skills_required = serializers.SerializerMethodField()
+    responsibilities = serializers.SerializerMethodField()
     
+    class Meta:
+        model = Job
+        fields = [
+            "title",
+            "description",
+            "skills_required",
+            "responsibilities",
+            "experience_required",
+        ]
+
+
+    def get_skills_required(self, obj):
+        skill_list = obj.skills_required
+        if isinstance(skill_list, list):
+            return ", ".join(skill_list)
+        return skill_list or "Not Specified"
+
+    def get_responsibilities(self, obj):
+        responsibilities_list = obj.responsibilities
+        if isinstance(responsibilities_list, list):
+            return "\n-" + "\n-".join(responsibilities_list)
+        return responsibilities_list or "Not Specified"
+
     

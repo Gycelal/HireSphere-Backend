@@ -235,3 +235,6 @@ cloudinary.config(
     api_key=config("CLOUDINARY_API_KEY"),
     api_secret=config("CLOUDINARY_API_SECRET"),
 )
+
+# gemini configurations
+GEMINI_API_KEY = config("GEMINI_API_KEY")
