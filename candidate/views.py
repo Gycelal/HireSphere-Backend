@@ -14,9 +14,9 @@ from django.db.models import Max
 from django.core.cache import cache
 from jobs.models import Job
 from .services.document_extractor import extract_text
-from .services.job_matcher import analyze_resume_job_mach
+from .services.job_matcher import analyze_resume_job_match
 from .serializers import JobAIPromptSerializer
-import json
+from google.genai.errors import APIError
 
 logger = logging.getLogger(__name__)
 
@@ -224,9 +224,15 @@ class ResumeViewSet(ListModelMixin, CreateModelMixin, GenericViewSet):
 
 
 class AnalyzeMatchView(APIView):
+    """
+    Perform Ai-driven analysis matching a candidate's resume against a job's requirements. 
+    """
     permission_classes = [IsCandidate]
 
     def post(self, request):
+        """
+        Processes candidate matching request. Checks cache before invoking AI service.
+        """
         job_id = request.data.get("job_id")
         resume_id = request.data.get("resume_id")
 
@@ -258,20 +264,21 @@ class AnalyzeMatchView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Serializer Job data to clean json string
-        serialized_job = JobAIPromptSerializer(job).data
-        job_details =  json.dumps(serialized_job, indent=2)
-
+        job_details = JobAIPromptSerializer(job).data
 
         try:
-            match_result = analyze_resume_job_mach(job_details, resume_text)
+            match_result = analyze_resume_job_match(job_details, resume_text)
 
             cache.set(cache_key, match_result, timeout=86400)
             return Response(match_result, status=status.HTTP_200_OK)
-
+        
+        except APIError as e:
+            logger.error(f"AI service API failure: {e}")
+            return Response({"detail": "AI service is currently unavailable."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
         except Exception as e:
-            logger.error(f"Error analyzing match: {e}")
+            logger.error(f"Unexpected internal error: {e}", exc_info=True)
             return Response(
-                {"detail": "Error analyzing match."},
+                {"detail": "An internal error occurred while processing your request."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

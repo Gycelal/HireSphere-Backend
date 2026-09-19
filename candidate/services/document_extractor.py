@@ -1,3 +1,8 @@
+"""
+Downloads PDF and DOCX files from remote URLs and extracts plain text.
+Validates for unreadable scanned files and file corruption.
+"""
+
 import io
 import requests
 import pdfplumber 
@@ -5,10 +10,7 @@ import docx
 
 
 def extract_text(file_url: str) -> str:
-    """
-    Downloads file from the URL (Cloudinary) and extracts text from it based on its format.
-    Handles corruption, invalid syntax, and unreadable scanned files.
-    """
+    """Downloads file from URL and extracts text based on format (.pdf or .docx)."""
     try:
         response = requests.get(file_url, timeout=10)
         response.raise_for_status()
@@ -37,6 +39,8 @@ def extract_text(file_url: str) -> str:
 
 
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
+    """Extracts text page-by-page using pdfplumber."""
+
     extracted_text = []
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for page in pdf.pages:
@@ -47,6 +51,8 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
 
 
 def _extract_text_from_docx(file_bytes: bytes) -> str:
+    """Extracts paragraph text and table content from a DOCX file."""
+    
     with io.BytesIO(file_bytes) as stream:
         doc = docx.Document(stream)
         extracted_text = []

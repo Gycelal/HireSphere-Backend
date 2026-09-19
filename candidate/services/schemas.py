@@ -1,3 +1,10 @@
+"""
+Pydantic schemas for AI-driven resume matching responses.
+
+Defines the structured JSON output schema enforced during Google Gemini 
+API generation calls for candidate job alignment.
+"""
+
 from pydantic import BaseModel, Field
 from typing import List
 
