@@ -8,7 +8,7 @@ from rest_framework import status
 import logging
 from .models import Candidate, Resume
 from rest_framework.viewsets import GenericViewSet
-from rest_framework.mixins import ListModelMixin, CreateModelMixin
+from rest_framework.mixins import ListModelMixin, CreateModelMixin, RetrieveModelMixin
 from rest_framework.decorators import action
 from django.db.models import Max
 from django.core.cache import cache
@@ -185,11 +185,12 @@ class CandidateProfileResumeUploadView(APIView):
         return Response({"detail": "Resume Removed."}, status=status.HTTP_200_OK)
 
 
-class ResumeViewSet(ListModelMixin, CreateModelMixin, GenericViewSet):
+class ResumeViewSet(ListModelMixin, CreateModelMixin, RetrieveModelMixin, GenericViewSet):
 
     permission_classes = [IsCandidate]
     serializer_class = ResumeSerializer
     pagination_class = None
+    print("hits the view")
 
     def get_queryset(self):
         return Resume.objects.filter(candidate__user=self.request.user).order_by(
@@ -219,7 +220,7 @@ class ResumeViewSet(ListModelMixin, CreateModelMixin, GenericViewSet):
         serializer = self.get_serializer(resumes, many=True)
         logger.info(
             f"Recent resumes data: {serializer.data}"
-        )  # Logging the serialized data
+        ) 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
