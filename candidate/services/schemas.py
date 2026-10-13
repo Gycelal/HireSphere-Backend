@@ -22,3 +22,13 @@ class AIAnalysisSchema(BaseModel):
     suggestions: List[str] = Field(
         ..., description="Actionable framing suggestions for the candidate to improve their resume and better align with the job"
     )
+
+
+class CoverLetterSchema(BaseModel):
+    cover_letter: str = Field(
+        ...,
+        description=(
+            "Complete cover letter as plain text with paragraph breaks. "
+            "No Markdown, commentary, or unfilled placeholders."
+        )
+    )

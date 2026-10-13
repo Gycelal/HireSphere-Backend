@@ -224,7 +224,24 @@ LOGGING = {
             "handlers": ["console"],
             "level": "WARNING", 
             "propagate": False,
-        }
+        },
+        # Suppress library DEBUG and INFO messages.
+        "pdfminer": {
+            "level": "WARNING",
+            "propagate": True,
+        },
+        "httpcore": {
+            "level": "WARNING",
+            "propagate": True,
+        },
+        "httpx": {
+            "level": "WARNING",
+            "propagate": True,
+        },
+        "google_genai": {
+            "level": "WARNING",
+            "propagate": True,
+        },
     },
 }
 

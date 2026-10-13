@@ -63,7 +63,7 @@ def _extract_text_from_docx(file_bytes: bytes) -> str:
     
         for table in doc.tables:
             for row in table.rows:
-                row_text = [cell.text.text.strip() for cell in row.cells if cell.text.strip()]
+                row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
                 if row_text:
                     extracted_text.append(" | ".join(row_text))
 

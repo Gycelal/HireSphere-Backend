@@ -1,27 +1,32 @@
-from rest_framework.generics import RetrieveUpdateAPIView
-from .serializers import CandidateSerializer, ResumeSerializer, ResumeUploadSerializer
-from accounts.permissions import IsCandidate
-from core.serializers import ProfilePictureSerializer
 from rest_framework.views import APIView, Response
 import cloudinary.uploader
 from rest_framework import status
 import logging
-from .models import Candidate, Resume
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.mixins import ListModelMixin, CreateModelMixin, RetrieveModelMixin
 from rest_framework.decorators import action
 from django.db.models import Max
 from django.core.cache import cache
 from jobs.models import Job
-from .services.document_extractor import extract_text
+from google.genai.errors import APIError
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+from .services.cover_letter_generator import generate_cover_letter
 from .services.job_matcher import analyze_resume_job_match
 from .serializers import JobAIPromptSerializer
-from google.genai.errors import APIError
+from .services.document_extractor import extract_text
+from .models import Candidate, Resume
+from core.serializers import ProfilePictureSerializer
+from accounts.permissions import IsCandidate
+from rest_framework.generics import RetrieveUpdateAPIView
+from .serializers import CandidateSerializer, ResumeSerializer, ResumeUploadSerializer, GenerateCoverLetterRequestSerializer
+from .services.gemini_service import AIResponseBlockedError, AIServiceError
+
+
 
 logger = logging.getLogger(__name__)
 
-
-# Create your views here.
 class CandidateProfileView(RetrieveUpdateAPIView):
     """
     Handle Updation of Profile and retrieval of profile data for candidate
@@ -242,13 +247,6 @@ class AnalyzeMatchView(APIView):
                 {"detail": "Job ID and Resume ID are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        cache_key = f"ai_match:{job_id}:{resume_id}"
-        cached_result = cache.get(cache_key)
-
-        if cached_result:
-            return Response(cached_result, status=status.HTTP_200_OK)
-
         try:
             job = Job.objects.get(id=job_id, is_active=True)
             resume = Resume.objects.get(id=resume_id, candidate__user=request.user)
@@ -257,8 +255,21 @@ class AnalyzeMatchView(APIView):
                 {"detail": "Job or Resume not found."}, status=status.HTTP_404_NOT_FOUND
             )
 
+        cache_key = f"ai_match:{job_id}:{resume_id}"
+        cached_result = cache.get(cache_key)
+
+        if cached_result:
+            return Response(cached_result, status=status.HTTP_200_OK)
+
         # Extract text from the resume using the document extractor service
-        resume_text = extract_text(resume.file_url)
+        try:
+            resume_text = extract_text(resume.file_url)
+        except ValueError as e:
+            logger.error(f"Text extraction failed for resume {resume_id}: {e}")
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST
+            )
+        
         if not resume_text:
             return Response(
                 {"detail": "Failed to extract text from resume."},
@@ -283,3 +294,86 @@ class AnalyzeMatchView(APIView):
                 {"detail": "An internal error occurred while processing your request."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class GenerateCoverLetterView(APIView):
+    """Generate a cover letter draft without saving it."""
+
+    permission_classes = [IsCandidate]
+
+    def post(self, request):
+        request_serializer = GenerateCoverLetterRequestSerializer(data=request.data)
+
+        request_serializer.is_valid(raise_exception=True)
+        data = request_serializer.validated_data
+
+        job = get_object_or_404(
+            Job,
+            id=data["job_id"],
+            is_active=True,
+            application_deadline__gte=timezone.localdate(),
+        )
+
+        resume = get_object_or_404(
+            Resume,
+            id=data["resume_id"],
+            candidate__user=request.user,
+        )
+
+        try:
+            resume_text = extract_text(resume.file_url)
+        except ValueError as exc:
+            logger.warning(
+                "Cover-letter resume extraction failed: resume_id=%s",
+                resume.id,
+            )
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not resume_text or not resume_text.strip():
+            return Response(
+                {"detail": "The resume contains no readable text."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        job_details = JobAIPromptSerializer(job).data
+
+        try:
+            result = generate_cover_letter(
+                job_details=job_details,
+                resume_text = resume_text,
+            )
+        except AIResponseBlockedError:
+            logger.warning(
+                "Cover letter generation failed: job_id=%s resume_id=%s",
+                job.id,
+                resume.id
+            )
+
+            return Response(
+                {"detail": "The AI service could not process this content."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except AIServiceError:
+            logger.warning(
+                "Cover letter generation blocked: job_id=%s resume_id=%s",
+                job.id,
+                resume.id
+            )
+            return Response(
+                {"detail": "Ai generation failed. Please try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except APIError as exc:
+            logger.error(
+                "Unexpected cover-letter generation failure: type=%s",
+                type(exc).__name__
+            )
+            return Response(
+                {"detail": "An internal error occured during generation."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        return Response(result, status=status.HTTP_200_OK)
+

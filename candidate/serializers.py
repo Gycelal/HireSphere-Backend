@@ -163,4 +163,7 @@ class JobAIPromptSerializer(serializers.ModelSerializer):
             return "\n-" + "\n-".join(responsibilities_list)
         return responsibilities_list or "Not Specified"
 
-    
+
+class GenerateCoverLetterRequestSerializer(serializers.Serializer):
+    job_id = serializers.IntegerField(min_value=1)
+    resume_id = serializers.IntegerField(min_value=1)

@@ -1,4 +1,4 @@
-from .views import CandidateProfileView, CandidateProfilePhotoView, CandidateProfileResumeUploadView, ResumeViewSet, AnalyzeMatchView
+from .views import CandidateProfileView, CandidateProfilePhotoView, CandidateProfileResumeUploadView, ResumeViewSet, AnalyzeMatchView, GenerateCoverLetterView
 from django.urls import path
 
 
@@ -10,4 +10,5 @@ urlpatterns = [
     path('resumes/', ResumeViewSet.as_view({"post": "create"}), name='candidate-resumes'),
     path('resume/<int:pk>/', ResumeViewSet.as_view({"get": "retrieve"}), name='candidate-resume-detail'),
     path('ai/analyze-match/', AnalyzeMatchView.as_view(), name='ai-analyze-match'),
+    path('ai/generate-cover-letter/', GenerateCoverLetterView.as_view(), name='generate-with-ai'),
 ]
