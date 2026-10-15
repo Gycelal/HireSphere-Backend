@@ -167,3 +167,28 @@ class JobAIPromptSerializer(serializers.ModelSerializer):
 class GenerateCoverLetterRequestSerializer(serializers.Serializer):
     job_id = serializers.IntegerField(min_value=1)
     resume_id = serializers.IntegerField(min_value=1)
+
+
+class AssistantHistoryMessageSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=["user", "assistant"])
+    content = serializers.CharField(max_length=4000)
+
+class CoverLetterAssistantSerializer(serializers.Serializer):
+    job_id = serializers.IntegerField(min_value=1)
+    resume_id = serializers.IntegerField(min_value=1)
+
+    current_cover_letter = serializers.CharField(
+        required=False,
+        default="",
+        allow_blank=True,
+        max_length=15000,
+        trim_whitespace=False
+    )
+
+    message = serializers.CharField(max_length=2000)
+    history = AssistantHistoryMessageSerializer(
+        many=True,
+        required=False,
+        default=list,
+        max_length=10,
+    ) 

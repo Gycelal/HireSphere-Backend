@@ -20,8 +20,9 @@ from .models import Candidate, Resume
 from core.serializers import ProfilePictureSerializer
 from accounts.permissions import IsCandidate
 from rest_framework.generics import RetrieveUpdateAPIView
-from .serializers import CandidateSerializer, ResumeSerializer, ResumeUploadSerializer, GenerateCoverLetterRequestSerializer
+from .serializers import CandidateSerializer, ResumeSerializer, ResumeUploadSerializer, GenerateCoverLetterRequestSerializer, CoverLetterAssistantSerializer
 from .services.gemini_service import AIResponseBlockedError, AIServiceError
+from .services.cover_letter_assistant import cover_letter_assistant
 
 
 
@@ -377,3 +378,85 @@ class GenerateCoverLetterView(APIView):
             )
         return Response(result, status=status.HTTP_200_OK)
 
+
+class AiCoverLetterAssistant(APIView):
+    """Respond to a message or propose an updated cover letter without saving."""
+
+    permission_classes = [IsCandidate]
+
+    def post(self, request):
+        request_serializer = CoverLetterAssistantSerializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+        data = request_serializer.validated_data
+
+        job = get_object_or_404(
+            Job,
+            id=data["job_id"],
+            is_active=True,
+            application_deadline__gte=timezone.localdata(),
+        )
+
+        resume = get_object_or_404(
+            Resume,
+            id=data["resume_id"],
+            candidate__user=request.user,
+        )
+
+        try:
+            resume_text = extract_text(resume.file_url)
+        except ValueError as exc:
+            logger.warning(
+                "assistant resume extraction failed: resume_id%s",
+                resume.id
+            )
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not resume_text or not resume_text.strip():
+            return Response(
+                {"detail": "The resume contains no readable text."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        job_details = JobAIPromptSerializer(job).data
+
+        try:
+            result = cover_letter_assistant(
+                job_details=job_details,
+                resume_text=resume_text,
+                current_cover_letter=data["current_cover_letter"],
+                message=data["message"],
+                history=data["history"],
+            )
+        except AIResponseBlockedError:
+            logger.warning(
+                "cover letter assistant response blocked, job_id=%s resume_id=%s",
+                job.id,
+                resume.id
+            )
+            return Response(
+                {"detail": "The AI service could not process this content."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except AIServiceError:
+            logger.warning(
+                "cover letter assistant service failed. job_id=%s, resume_id=%s",
+                job.id,
+                resume.id,
+            )
+            return Response(
+                {"detail": "The Writing assistant is available. Please try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except APIError as exc:
+            logger.error(
+                "unexpeced cover letter assistant api failuer: type=%s",
+                type(exc).__name__,
+            )
+            return Response(
+                {"detail": "The writing assistant is unavailable. Please try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(result, status=status.HTTP_200_OK)
