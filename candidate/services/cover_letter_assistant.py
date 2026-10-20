@@ -41,5 +41,6 @@ def cover_letter_assistant(
     return generate_structured_content(
         system_instruction=COVER_LETTER_ASSISTANT_SYSTEM_INSTRUCTION,
         prompt=prompt,
-        response_schema=CoverLetterAssistantResponseSchema,
+        schema=CoverLetterAssistantResponseSchema,
+        temperature=0.3,
     )

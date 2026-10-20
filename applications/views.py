@@ -1,5 +1,3 @@
-from django.shortcuts import render
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.generics import ListAPIView
 from .models import Application
 from accounts.permissions import IsApprovedRecruiter, IsCandidate
@@ -9,8 +7,14 @@ from rest_framework import status
 from rest_framework.mixins import (CreateModelMixin, RetrieveModelMixin, ListModelMixin)
 from rest_framework.viewsets import GenericViewSet
 from .serializers import ApplicationSerializer
+import logging
+from django.db import IntegrityError, transaction
+from .exceptions import AlreadyApplied
+
+
 # Create your views here.
 
+logger = logging.getLogger(__name__)
 
 class ApplicationViewSet(CreateModelMixin, RetrieveModelMixin, ListModelMixin, GenericViewSet):
     """
@@ -25,22 +29,26 @@ class ApplicationViewSet(CreateModelMixin, RetrieveModelMixin, ListModelMixin, G
     """
     
     serializer_class = ApplicationSerializer
+    logger.debug("recieved request in applicattion view set.")
 
     def get_queryset(self):
 
         role = self.request.user.role 
 
         if role == "candidate":
-            return Application.objects.filter(candidate=self.request.user)
+            return Application.objects.filter(candidate=self.request.user.candidate)
         
         if role == "recruiter":
-            return Application.objects.filter(job__recruiter=self.request.user)
+            return Application.objects.filter(job__recruiter=self.request.user.recruiterprofile)
         
         return Application.objects.none()
     
     
     def get_permissions(self):
 
+        if self.acion == "retrieve":
+            return [(IsCandidate | IsApprovedRecruiter)()]
+        
         if self.action == "status":
             return [IsApprovedRecruiter()]
         
@@ -51,7 +59,20 @@ class ApplicationViewSet(CreateModelMixin, RetrieveModelMixin, ListModelMixin, G
     
     
     def perform_create(self, serializer):
-        serializer.save(candidate=self.request.user)
+        try:
+            with transaction.atomic():
+                serializer.save(candidate=self.request.user.candidate)
+        except IntegrityError as exc:
+            constraint = getattr(
+                getattr(exc.__cause__, "diag", None),
+                "constraint_name",
+                None,
+            )
+            if constraint == "unique_candidate_job_application":
+                raise AlreadyApplied() from exc
+            raise
+
+        
 
     
     @action(detail=True, methods=["patch"])
@@ -69,6 +90,7 @@ class ApplicationViewSet(CreateModelMixin, RetrieveModelMixin, ListModelMixin, G
         return Response({
             "message": "Status Updated Successfully.",
             "status": application.status,
+
         })
 
 

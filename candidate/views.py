@@ -393,7 +393,7 @@ class AiCoverLetterAssistant(APIView):
             Job,
             id=data["job_id"],
             is_active=True,
-            application_deadline__gte=timezone.localdata(),
+            application_deadline__gte=timezone.localdate(),
         )
 
         resume = get_object_or_404(
