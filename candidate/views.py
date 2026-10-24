@@ -16,14 +16,16 @@ from .services.cover_letter_generator import generate_cover_letter
 from .services.job_matcher import analyze_resume_job_match
 from .serializers import JobAIPromptSerializer
 from .services.document_extractor import extract_text
-from .models import Candidate, Resume
+from .models import Candidate, Resume, ResumeUploadAttempt
 from core.serializers import ProfilePictureSerializer
 from accounts.permissions import IsCandidate
 from rest_framework.generics import RetrieveUpdateAPIView
 from .serializers import CandidateSerializer, ResumeSerializer, ResumeUploadSerializer, GenerateCoverLetterRequestSerializer, CoverLetterAssistantSerializer
 from .services.gemini_service import AIResponseBlockedError, AIServiceError
 from .services.cover_letter_assistant import cover_letter_assistant
-
+from rest_framework.parsers import MultiPartParser
+from django.db import transaction
+from .services.resume_upload import upload_resume
 
 
 logger = logging.getLogger(__name__)
@@ -134,84 +136,95 @@ class CandidateProfileResumeUploadView(APIView):
     """
 
     permission_classes = [IsCandidate]
+    parser_classes = [MultiPartParser]
 
     def patch(self, request):
         serializer = ResumeUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        candidate, created = Candidate.objects.get_or_create(user=request.user)
-
-        resume = Resume.objects.create(
-            candidate=candidate,
-            file_url=serializer.validated_data["file_url"],
-            public_id=serializer.validated_data["public_id"],
-            file_name=serializer.validated_data["file_name"],
+        resume, created, is_replay = upload_resume(
+            user=request.user,
+            file=serializer.validated_data["file"],
+            key=serializer.validated_data["upload_key"],
+            purpose=ResumeUploadAttempt.Purpose.PROFILE,
         )
-
-        candidate.default_resume = resume
-        candidate.save(update_fields=["default_resume"])
 
         return Response(
             {
-                "resume": {
-                    "id": resume.id,
-                    "file_url": resume.file_url,
-                    "public_id": resume.public_id,
-                    "file_name": resume.file_name,
-                }
+                "resume": ResumeSerializer(resume).data,
+                "created": created,
+                "is_replay": is_replay,
             },
             status=status.HTTP_200_OK,
         )
 
     def delete(self, request):
-
-        try:
-            candidate = Candidate.objects.get(user=request.user)
-        except Candidate.DoesNotExist:
-            return Response(
-                {"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND
+        with transaction.atomic():
+            candidate = (
+                Candidate.objects.select_for_update().filter(user=request.user).first()
             )
+            if candidate is None:
+                return Response(
+                    {"detail": "Profile not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if candidate.default_resume_id is None:
+                return Response(
+                    {"detail": "No resume to remove."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
-        if not candidate.default_resume:
-            return Response(
-                {"detail": "No resume to remove."}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        candidate.default_resume = None
-
-        try:
+            # Preserve Resume and its cloudinary asset because
+            # applications may still reference it.
+            candidate.default_resume = None
             candidate.save(update_fields=["default_resume"])
-        except Exception as e:
-            logger.error(f"Failed to remove resume: {e}")
-            return Response(
-                {"detail": "Failed to remove resume."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
 
-        return Response({"detail": "Resume Removed."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Resume Removed."},
+            status=status.HTTP_200_OK,
+        )
 
 
-class ResumeViewSet(ListModelMixin, CreateModelMixin, RetrieveModelMixin, GenericViewSet):
+
+class ResumeViewSet(CreateModelMixin, RetrieveModelMixin, GenericViewSet):
 
     permission_classes = [IsCandidate]
     serializer_class = ResumeSerializer
+    parser_classes = [MultiPartParser]
     pagination_class = None
-    print("hits the view")
 
     def get_queryset(self):
         return Resume.objects.filter(candidate__user=self.request.user).order_by(
             "-created_at"
         )
 
-    def perform_create(self, serializer):
-        candidate, created = Candidate.objects.get_or_create(user=self.request.user)
-        serializer.save(candidate=candidate)
+    def create(self, request):
+        serializer = ResumeUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        resume, created, is_replay = upload_resume(
+            user=request.user,
+            file=serializer.validated_data["file"],
+            key=serializer.validated_data["upload_key"],
+            purpose=ResumeUploadAttempt.Purpose.APPLICATION,
+        )
+
+        # Preserve the existing flat response shape for this endpoint.
+        response_data = {
+            **ResumeSerializer(resume).data,
+            "created": created,
+            "is_replay": is_replay,
+        }
+
+        return Response(
+            response_data,
+            status=(
+                status.HTTP_201_CREATED if created and not is_replay else status.HTTP_200_OK
+            ),
+        )
 
     @action(detail=False, methods=["get"], url_path="recent")
     def recent(self, request):
-        logger.info(f"Fetching recent resumes for user: {request.user.email}")
-        print("in recent resumes view")
-
         candidate = request.user.candidate
 
         resumes = (
@@ -223,11 +236,10 @@ class ResumeViewSet(ListModelMixin, CreateModelMixin, RetrieveModelMixin, Generi
             .order_by("-last_used")[:3]
         )
 
-        serializer = self.get_serializer(resumes, many=True)
-        logger.info(
-            f"Recent resumes data: {serializer.data}"
-        ) 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            self.get_serializer(resumes, many=True).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class AnalyzeMatchView(APIView):

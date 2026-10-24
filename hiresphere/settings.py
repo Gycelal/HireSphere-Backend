@@ -69,6 +69,12 @@ CACHES = {
 CELERY_BROKER_URL = config("CELERY_BROKER_URL")
 CELERY_ACCEPT_CONTENT=['json']
 CELERY_TASK_SERIALIZER='json'
+CELERY_BEAT_SCHEDULE = {
+    "cleanup-resume-uploads": {
+        "task": "candidate.tasks.cleanup_resume_uploads",
+        "schedule": 300.0,
+    },
+}
 
 #Email Configurations
 EMAIL_BACKEND = config("EMAIL_BACKEND")

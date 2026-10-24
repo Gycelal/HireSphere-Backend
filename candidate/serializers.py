@@ -13,6 +13,14 @@ CANDIDATE_PROFILE_FIELDS = [
     "default_resume",
 ]
 
+class ResumeUploadSerializer(serializers.Serializer):
+    file = serializers.FileField(
+        write_only=True,
+        allow_empty_file=False,
+    )
+    upload_key = serializers.UUIDField(write_only=True)
+
+
 class ResumeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Resume
@@ -23,6 +31,7 @@ class ResumeSerializer(serializers.ModelSerializer):
             "file_name",
             "created_at",
         ]
+        read_only_fields = fields
 
 class CandidateProfileSerializer(serializers.ModelSerializer):
     """
@@ -125,15 +134,6 @@ class CandidateSerializer(serializers.ModelSerializer):
                 setattr(profile, attr, value)
             profile.save()     
         return user
-     
-    
-
-class ResumeUploadSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Resume
-        fields = ["public_id", "file_url", "file_name"]
-
-
 
 
 class JobAIPromptSerializer(serializers.ModelSerializer):
