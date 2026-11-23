@@ -118,6 +118,29 @@ def delete_asset(public_id):
         raise RuntimeError("Cloudinary did not confirm asset deletion.")
 
 
+def delete_resume_if_unused(candidate_id, resume_id):
+
+    if resume_id is None:
+        return
+    resume = (
+        Resume.objects.select_for_update()
+        .filter(pk=resume_id, candidate_id=candidate_id)
+        .first()
+    )
+
+    if resume is None:
+        return
+
+    if Candidate.objects.filter(default_resume_id=resume.pk).exists():
+        return
+
+    if resume.applications.exists():
+        return
+
+    delete_asset(resume.public_id)
+    resume.delete()
+
+
 def cleanup_upload(attempt_id, *, force=False):
     """
     Lock and permenantly abandon an unsuccessful attempt before deleting.
@@ -179,7 +202,7 @@ def cleanup_upload(attempt_id, *, force=False):
         attempt.save(update_fields=["state", "cleanup_failures", "next_cleanup_at"])
 
 
-def upload_resume(*, user, file, key, purpose):
+def upload_resume(*, user, file, upload_key, purpose):
     (
         data,
         filename,
@@ -191,44 +214,52 @@ def upload_resume(*, user, file, key, purpose):
     with transaction.atomic(durable=True):
         candidate, _ = Candidate.objects.get_or_create(user=user)
 
+        # if new upload_key it creates new PENDING attempt or for existing
+        # key for this candidate and purpose it retrieve existing attempt.
         attempt, _ = ResumeUploadAttempt.objects.get_or_create(
             candidate=candidate,
             purpose=purpose,
-            key=key,
+            upload_key=upload_key,
             defaults={
                 "fingerprint": fingerprint,
-                "public_id":(
+                "public_id": (
                     f"candidate_resumes/{candidate.pk}/"
                     f"{uuid.uuid4().hex}{extension}"
-                )
-            }
+                ),
+            },
         )
 
     try:
         with transaction.atomic(durable=True):
             # Serialize resume uploads for this candidate, including
-            # requests with different keys but identical file contents.
+            # requests with different upload keys but identical file contents.
             #
             # PostgreSQL's no_key lock permits unrelated FK inserts,
             # including creation of another upload-attempt record.
 
+            # acquire the locks
+            # locks it and recives its instance if it is not already locked
             profile = (
-                Candidate.objects.select_for_update(skip_locked=True, no_key=True).filter(pk=candidate.pk).first()
+                Candidate.objects.select_for_update(skip_locked=True, no_key=True)
+                .filter(pk=candidate.pk)
+                .first()
             )
 
             if profile is None:
                 raise UploadConflict(
-                    "another resume upload is processing. "
-                    "retry with the same key."
+                    "another resume upload is processing. " "retry with the same key."
                 )
 
+            # checks attempt is free without lock
             locked_attempt = (
-                ResumeUploadAttempt.objects.select_for_update(skip_locked=True).filter(pk=attempt.pk).first()
+                ResumeUploadAttempt.objects.select_for_update(skip_locked=True)
+                .filter(pk=attempt.pk)
+                .first()
             )
 
             if locked_attempt is None:
                 raise UploadConflict(
-                    "This upload is processing. Retry with he same key."
+                    "This upload is processing. Retry with the same key."
                 )
 
             if locked_attempt.fingerprint != fingerprint:
@@ -236,18 +267,24 @@ def upload_resume(*, user, file, key, purpose):
                     "This upload key was already used with"
                     "different file contents or a different filename. "
                 )
+
+            # This upload already succeeded. If its resume was deleted, reject the retry.
+            # Otherwise, return the existing resume without changing the current default.
             if locked_attempt.state == ResumeUploadAttempt.State.SAVED:
-                # This request already succeeded. Return its resume 
-                # without changing the current default.
+                if locked_attempt.resume_id is None:
+                    raise UploadConflict(
+                        "The resume from this upload has been removed."
+                        "Start a new upload with a new key."
+                    )
                 resume = Resume.objects.get(pk=locked_attempt.resume_id)
                 return resume, locked_attempt.created_resume, True
 
             if locked_attempt.state == ResumeUploadAttempt.State.ABANDONED:
                 raise UploadConflict(
-                    "This attempt was abandoned."
-                    "Start a new upload with a new key."
+                    "This attempt was abandoned." "Start a new upload with a new key."
                 )
 
+            # does this candidate already have this file saved
             resume = Resume.objects.filter(
                 candidate=profile,
                 file_hash=file_hash,
@@ -266,7 +303,9 @@ def upload_resume(*, user, file, key, purpose):
                     unique_filename=False,
                     timeout=60,
                 )
-                if(result.get("public_id") != locked_attempt.public_id or not result.get("secure_url")):
+                if result.get(
+                    "public_id"
+                ) != locked_attempt.public_id or not result.get("secure_url"):
                     raise RuntimeError("Invalid Cloudinary upload response.")
 
                 resume = Resume(
@@ -280,18 +319,22 @@ def upload_resume(*, user, file, key, purpose):
                 resume.save()
 
             if purpose == ResumeUploadAttempt.Purpose.PROFILE:
+                prev_resume_id = profile.default_resume_id
+
                 profile.default_resume = resume
                 profile.save(update_fields=["default_resume"])
+
+                if prev_resume_id != resume.pk:
+                    delete_resume_if_unused(
+                        candidate_id=profile.pk,
+                        resume_id=prev_resume_id,
+                    )
 
             locked_attempt.resume = resume
             locked_attempt.created_resume = created_resume
             locked_attempt.state = ResumeUploadAttempt.State.SAVED
-            locked_attempt.save(update_fields=[
-                "resume",
-                "created_resume",
-                "state"
-            ])
-        
+            locked_attempt.save(update_fields=["resume", "created_resume", "state"])
+
         return resume, created_resume, False
 
     except UploadConflict:
@@ -313,7 +356,3 @@ def upload_resume(*, user, file, key, purpose):
                 attempt.pk,
             )
         raise UploadUnavailable() from exc
-            
-             
-
-

@@ -3,7 +3,7 @@ import cloudinary.uploader
 from rest_framework import status
 import logging
 from rest_framework.viewsets import GenericViewSet
-from rest_framework.mixins import ListModelMixin, CreateModelMixin, RetrieveModelMixin
+from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin
 from rest_framework.decorators import action
 from django.db.models import Max
 from django.core.cache import cache
@@ -15,20 +15,30 @@ from django.utils import timezone
 from .services.cover_letter_generator import generate_cover_letter
 from .services.job_matcher import analyze_resume_job_match
 from .serializers import JobAIPromptSerializer
-from .services.document_extractor import extract_text
+from .services.document_extractor import extract_text, extract_text_from_bytes
 from .models import Candidate, Resume, ResumeUploadAttempt
 from core.serializers import ProfilePictureSerializer
 from accounts.permissions import IsCandidate
 from rest_framework.generics import RetrieveUpdateAPIView
-from .serializers import CandidateSerializer, ResumeSerializer, ResumeUploadSerializer, GenerateCoverLetterRequestSerializer, CoverLetterAssistantSerializer
+from .serializers import (
+    CandidateSerializer,
+    ResumeSerializer,
+    ResumeUploadSerializer,
+    GenerateCoverLetterRequestSerializer,
+    CoverLetterAssistantSerializer,
+)
 from .services.gemini_service import AIResponseBlockedError, AIServiceError
 from .services.cover_letter_assistant import cover_letter_assistant
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser, JSONParser
 from django.db import transaction
-from .services.resume_upload import upload_resume
-
+from .services.resume_upload import (
+    upload_resume,
+    delete_resume_if_unused,
+    validate_resume,
+)
 
 logger = logging.getLogger(__name__)
+
 
 class CandidateProfileView(RetrieveUpdateAPIView):
     """
@@ -145,7 +155,7 @@ class CandidateProfileResumeUploadView(APIView):
         resume, created, is_replay = upload_resume(
             user=request.user,
             file=serializer.validated_data["file"],
-            key=serializer.validated_data["upload_key"],
+            upload_key=serializer.validated_data["upload_key"],
             purpose=ResumeUploadAttempt.Purpose.PROFILE,
         )
 
@@ -159,31 +169,49 @@ class CandidateProfileResumeUploadView(APIView):
         )
 
     def delete(self, request):
-        with transaction.atomic():
-            candidate = (
-                Candidate.objects.select_for_update().filter(user=request.user).first()
-            )
-            if candidate is None:
-                return Response(
-                    {"detail": "Profile not found."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-            if candidate.default_resume_id is None:
-                return Response(
-                    {"detail": "No resume to remove."},
-                    status=status.HTTP_404_NOT_FOUND,
+        try:
+            with transaction.atomic():
+                candidate = (
+                    Candidate.objects.select_for_update()
+                    .filter(user=request.user)
+                    .first()
                 )
 
-            # Preserve Resume and its cloudinary asset because
-            # applications may still reference it.
-            candidate.default_resume = None
-            candidate.save(update_fields=["default_resume"])
+                if candidate is None:
+                    return Response(
+                        {"detail": "Profile not found."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                prev_resume_id = candidate.default_resume_id
+
+                if prev_resume_id is None:
+                    return Response(
+                        {"detail": "No resume to remove."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                candidate.default_resume = None
+                candidate.save(update_fields=["default_resume"])
+
+                delete_resume_if_unused(
+                    candidate_id=candidate.pk,
+                    resume_id=prev_resume_id,
+                )
+
+        except Exception:
+            logger.exception("default resume remove failed.")
+            return Response(
+                {
+                    "detail": "Something went wrong. Unable to remove, Please try again..."
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(
-            {"detail": "Resume Removed."},
+            {"detail": "Resume removed"},
             status=status.HTTP_200_OK,
         )
-
 
 
 class ResumeViewSet(CreateModelMixin, RetrieveModelMixin, GenericViewSet):
@@ -205,7 +233,7 @@ class ResumeViewSet(CreateModelMixin, RetrieveModelMixin, GenericViewSet):
         resume, created, is_replay = upload_resume(
             user=request.user,
             file=serializer.validated_data["file"],
-            key=serializer.validated_data["upload_key"],
+            upload_key=serializer.validated_data["upload_key"],
             purpose=ResumeUploadAttempt.Purpose.APPLICATION,
         )
 
@@ -219,7 +247,9 @@ class ResumeViewSet(CreateModelMixin, RetrieveModelMixin, GenericViewSet):
         return Response(
             response_data,
             status=(
-                status.HTTP_201_CREATED if created and not is_replay else status.HTTP_200_OK
+                status.HTTP_201_CREATED
+                if created and not is_replay
+                else status.HTTP_200_OK
             ),
         )
 
@@ -244,9 +274,11 @@ class ResumeViewSet(CreateModelMixin, RetrieveModelMixin, GenericViewSet):
 
 class AnalyzeMatchView(APIView):
     """
-    Perform Ai-driven analysis matching a candidate's resume against a job's requirements. 
+    Perform Ai-driven analysis matching a candidate's resume against a job's requirements.
     """
+
     permission_classes = [IsCandidate]
+    parser_classes = [MultiPartParser, JSONParser]
 
     def post(self, request):
         """
@@ -254,59 +286,91 @@ class AnalyzeMatchView(APIView):
         """
         job_id = request.data.get("job_id")
         resume_id = request.data.get("resume_id")
+        resume_file = request.data.get("file")
 
-        if not job_id or not resume_id:
+        if bool(resume_id) == bool(resume_file):
             return Response(
-                {"detail": "Job ID and Resume ID are required."},
+                {"detail": "Provide either resume_id or file."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not job_id:
+            return Response(
+                {"detail": "Job ID is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
             job = Job.objects.get(id=job_id, is_active=True)
-            resume = Resume.objects.get(id=resume_id, candidate__user=request.user)
-        except (Job.DoesNotExist, Resume.DoesNotExist):
+        except Job.DoesNotExist:
             return Response(
-                {"detail": "Job or Resume not found."}, status=status.HTTP_404_NOT_FOUND
+                {"detail": "Job not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        candidate = request.user.candidate
+
+        try:
+            if resume_id:
+                resume = Resume.objects.get(
+                    id=resume_id,
+                    candidate=candidate,
+                )
+
+                # existing saved resume
+                file_hash = resume.file_hash or f"resume-{resume.id}"
+                extract_resume_text = lambda: extract_text(resume.file_url)
+            else:
+                # newly uploaded resume
+                (
+                    file_bytes,
+                    _filename,
+                    extension,
+                    file_hash,
+                    _fingerprint,
+                ) = validate_resume(resume_file)
+
+                extract_resume_text = lambda: extract_text_from_bytes(
+                    file_bytes, extension
+                )
+
+        except Resume.DoesNotExist:
+            return Response(
+                {"detail": "Resume not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        cache_key = f"ai_match:{job_id}:{resume_id}"
+        cache_key = f"ai_match:{candidate.id}:{job.id}:{file_hash}"
         cached_result = cache.get(cache_key)
 
         if cached_result:
             return Response(cached_result, status=status.HTTP_200_OK)
 
-        # Extract text from the resume using the document extractor service
         try:
-            resume_text = extract_text(resume.file_url)
-        except ValueError as e:
-            logger.error(f"Text extraction failed for resume {resume_id}: {e}")
+            resume_text = extract_resume_text()
+
+        except ValueError as exc:
             return Response(
-                {"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not resume_text:
-            return Response(
-                {"detail": "Failed to extract text from resume."},
+                {"detail": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        job_details = JobAIPromptSerializer(job).data
-
         try:
-            match_result = analyze_resume_job_match(job_details, resume_text)
-
-            cache.set(cache_key, match_result, timeout=86400)
-            return Response(match_result, status=status.HTTP_200_OK)
-        
+            match_result = analyze_resume_job_match(
+                JobAIPromptSerializer(job).data, resume_text
+            )
         except APIError as e:
             logger.error(f"AI service API failure: {e}")
-            return Response({"detail": "AI service is currently unavailable."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        
+            return Response(
+                {"detail": "AI service is currently unavailable."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         except Exception as e:
             logger.error(f"Unexpected internal error: {e}", exc_info=True)
             return Response(
                 {"detail": "An internal error occurred while processing your request."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        cache.set(cache_key, match_result, timeout=86400)
+        return Response(match_result, status=status.HTTP_200_OK)
 
 
 class GenerateCoverLetterView(APIView):
@@ -356,13 +420,13 @@ class GenerateCoverLetterView(APIView):
         try:
             result = generate_cover_letter(
                 job_details=job_details,
-                resume_text = resume_text,
+                resume_text=resume_text,
             )
         except AIResponseBlockedError:
             logger.warning(
                 "Cover letter generation failed: job_id=%s resume_id=%s",
                 job.id,
-                resume.id
+                resume.id,
             )
 
             return Response(
@@ -373,7 +437,7 @@ class GenerateCoverLetterView(APIView):
             logger.warning(
                 "Cover letter generation blocked: job_id=%s resume_id=%s",
                 job.id,
-                resume.id
+                resume.id,
             )
             return Response(
                 {"detail": "Ai generation failed. Please try again later."},
@@ -382,11 +446,11 @@ class GenerateCoverLetterView(APIView):
         except APIError as exc:
             logger.error(
                 "Unexpected cover-letter generation failure: type=%s",
-                type(exc).__name__
+                type(exc).__name__,
             )
             return Response(
                 {"detail": "An internal error occured during generation."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         return Response(result, status=status.HTTP_200_OK)
 
@@ -417,10 +481,7 @@ class AiCoverLetterAssistant(APIView):
         try:
             resume_text = extract_text(resume.file_url)
         except ValueError as exc:
-            logger.warning(
-                "assistant resume extraction failed: resume_id%s",
-                resume.id
-            )
+            logger.warning("assistant resume extraction failed: resume_id%s", resume.id)
             return Response(
                 {"detail": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -429,7 +490,7 @@ class AiCoverLetterAssistant(APIView):
         if not resume_text or not resume_text.strip():
             return Response(
                 {"detail": "The resume contains no readable text."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         job_details = JobAIPromptSerializer(job).data
@@ -446,7 +507,7 @@ class AiCoverLetterAssistant(APIView):
             logger.warning(
                 "cover letter assistant response blocked, job_id=%s resume_id=%s",
                 job.id,
-                resume.id
+                resume.id,
             )
             return Response(
                 {"detail": "The AI service could not process this content."},
@@ -459,7 +520,9 @@ class AiCoverLetterAssistant(APIView):
                 resume.id,
             )
             return Response(
-                {"detail": "The Writing assistant is available. Please try again later."},
+                {
+                    "detail": "The Writing assistant is available. Please try again later."
+                },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except APIError as exc:
@@ -468,7 +531,9 @@ class AiCoverLetterAssistant(APIView):
                 type(exc).__name__,
             )
             return Response(
-                {"detail": "The writing assistant is unavailable. Please try again later."},
+                {
+                    "detail": "The writing assistant is unavailable. Please try again later."
+                },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         return Response(result, status=status.HTTP_200_OK)

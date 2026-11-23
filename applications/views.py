@@ -29,7 +29,6 @@ class ApplicationViewSet(CreateModelMixin, RetrieveModelMixin, ListModelMixin, G
     """
     
     serializer_class = ApplicationSerializer
-    logger.debug("recieved request in applicattion view set.")
 
     def get_queryset(self):
 
@@ -46,7 +45,7 @@ class ApplicationViewSet(CreateModelMixin, RetrieveModelMixin, ListModelMixin, G
     
     def get_permissions(self):
 
-        if self.acion == "retrieve":
+        if self.action == "retrieve":
             return [(IsCandidate | IsApprovedRecruiter)()]
         
         if self.action == "status":

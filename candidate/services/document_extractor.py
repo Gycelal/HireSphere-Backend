@@ -7,6 +7,7 @@ import io
 import requests
 import pdfplumber 
 import docx
+from pathlib import Path
 
 
 def extract_text(file_url: str) -> str:
@@ -14,27 +15,35 @@ def extract_text(file_url: str) -> str:
     try:
         response = requests.get(file_url, timeout=10)
         response.raise_for_status()
-        file_bytes = response.content
     except Exception:
         raise ValueError("Failed to download the file from the provided URL.")
 
-    clean_url = file_url.split("?")[0].lower()
+    extension = Path(file_url.split("?")[0]).suffix.lower()
+    return extract_text_from_bytes(response.content, extension)
 
+
+def extract_text_from_bytes(file_bytes: bytes, extension: str)-> str:
     try:
-        if clean_url.endswith(".pdf"):
+        if extension == ".pdf":
             text = _extract_text_from_pdf(file_bytes)
-        elif clean_url.endswith(".docx"):
+        elif extension == ".docx":
             text = _extract_text_from_docx(file_bytes)
         else:
-            raise ValueError("Unsupported file format. Only PDF and DOCX are supported.")
-    except Exception:
-        raise ValueError("Failed to extract text from the file. The file may be corrupted or unreadable.")
-
+            raise ValueError(
+                "Unsupported file format. Only PDF and DOCX are supported."
+            )
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(
+            "Failed to extract text frm the file. "
+            "The file may be corrupted or unreadable."
+        ) from exc
     if not text or len(text.strip()) < 50:
         raise ValueError(
-            "The uploaded PDF appears to be a scanned image or empty. Please upload a standard text PDF."
+            "The resume contains no readable text."
+            "Please upload a standard text PDF or DOCX file."
         )
-
     return text.strip()
 
 

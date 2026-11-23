@@ -74,7 +74,7 @@ class ResumeUploadAttempt(models.Model):
         Candidate, on_delete=models.PROTECT, related_name="resume_upload_attempts"
     )
     purpose = models.CharField(max_length=20, choices=Purpose.choices)
-    key = models.UUIDField()
+    upload_key = models.UUIDField()
 
     # Verify that retries use the same filename and file contents.
     fingerprint = models.CharField(max_length=64)
@@ -91,7 +91,7 @@ class ResumeUploadAttempt(models.Model):
     # Foreignkey: different attemtps can reuse the same Resume.
     resume = models.ForeignKey(
         Resume,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="upload_attempts",
@@ -105,7 +105,7 @@ class ResumeUploadAttempt(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["candidate", "purpose", "key"],
+                fields=["candidate", "purpose", "upload_key"],
                 name="unique_candidate_resume_ upload_key"
             )
         ]
